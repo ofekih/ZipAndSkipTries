@@ -12,7 +12,7 @@
 #include <iostream>
 
 const std::vector<std::string> WORDS = {
-	"ANT", "APPLE", "APPLY", "APT", "APTLY", "AQUA", "PAL", "PEACE", "PEACH", "PEAK", "PENGUIN", "PALA"
+	"ANT", "APPLE", "APPLY", "APT", "APTLY", "AQUA", "PAL", "PEACE", "PEACH", "PEAK", "PENGUIN", "PALA", "AAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAVB"
 };
 
 BitString<char> from_string(const std::string& str)
@@ -20,7 +20,7 @@ BitString<char> from_string(const std::string& str)
 	return BitString<char>(str);
 }
 
-ZipZipTrie<char, unsigned> create_test_zzt()
+ZipZipTrie<char, false> create_test_zzt()
 {
 	static std::unordered_map<std::string, BitString<char>> word_to_bs;
 	static std::unordered_map<std::string, unsigned> word_to_index;
@@ -36,7 +36,7 @@ ZipZipTrie<char, unsigned> create_test_zzt()
 
 	unsigned longest_word_length = std::max_element(WORDS.begin(), WORDS.end(), [](const std::string& a, const std::string& b) { return a.size() < b.size(); })->size();
 
-	ZipZipTrie<char, unsigned> trie(WORDS.size(), longest_word_length);
+	ZipZipTrie<char, false> trie(WORDS.size(), longest_word_length);
 	const unsigned NULLPTR = std::numeric_limits<unsigned>::max();
 
 	trie.set_root_index(word_to_index["ANT"]);
@@ -65,22 +65,43 @@ int main()
 
 	unsigned longest_word_length = std::max_element(WORDS.begin(), WORDS.end(), [](const std::string& a, const std::string& b) { return a.size() < b.size(); })->size();
 
-	ZipZipTrie<char, unsigned> trie = create_test_zzt();
+	ZipZipTrie<char, true> trie(WORDS.size(), longest_word_length);
+	// ZipZipTrie<char, unsigned> trie = create_test_zzt();
 
-	// if (!trie.contains(&bit_strings[5]))
+	// if (!trie.contains(&bit_strings[4]))
 	// {
-	// 	std::cout << "Word " << bit_strings[5].to_string() << " not found in trie" << std::endl;
+	// 	std::cout << "Word " << bit_strings[4].to_string() << " not found in trie" << std::endl;
 	// }
 
-	for (const auto& word : bit_strings)
-	{
-		if (!trie.contains(&word))
-		{
-			// should printf something like: <word> not found in trie, but shares an LCP length of <lcp_length>
-			// use trie.lcp(&word) to get the LCP length
-			printf("%s not found in trie, but shares an LCP length of %u\n", word.to_string().c_str(), trie.lcp(&word));
-		}
-	}
+	trie.insert(&bit_strings[0]);
+	trie.insert(&bit_strings[1]);
+	trie.insert(&bit_strings[2]);
+	trie.insert(&bit_strings[3]);
+	trie.insert(&bit_strings[4]);
+	trie.insert(&bit_strings[5]);
+	trie.insert(&bit_strings[6]);
+	trie.insert(&bit_strings[7]);
+	trie.insert(&bit_strings[8]);
+	trie.insert(&bit_strings[9]);
+	trie.insert(&bit_strings[10]);
+	trie.insert(&bit_strings[11]);
+	trie.insert(&bit_strings[12]);
+	trie.insert(&bit_strings[13]);
+
+	// for (const auto& word : bit_strings)
+	// {
+	// 	if (!trie.contains(&word))
+	// 	{
+	// 		// should printf something like: <word> not found in trie, but shares an LCP length of <lcp_length>
+	// 		// use trie.lcp(&word) to get the LCP length
+	// 		printf("%s not found in trie, but shares an LCP length of %u\n", word.to_string().c_str(), trie.lcp(&word));
+	// 	}
+	// }
+
+	trie.to_dot("test.dot");
+
+	// use system to run dot -Tpng test.dot -o test.png
+	system("dot -Tpng test.dot -o test.png");
 
 	// SkipTrie<char> trie;
 	// for (const auto& bit_string : bit_strings)

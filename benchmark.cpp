@@ -1,5 +1,6 @@
 #include "src/BitString.hpp"
 #include "src/SkipTrie.hpp"
+#include "src/ZipZipTrie.hpp"
 #include "src/synthetic.hpp"
 #include "src/data.hpp"
 
@@ -60,6 +61,34 @@ int main(int argc, char* argv[])
 	for (unsigned i = 0; i < num_trials; ++i)
 	{
 		SkipTrie<char> trie;
+
+		for (const auto& word : bit_strings)
+		{
+			trie.insert(&word);
+		}
+	}
+
+	timer.print();
+
+	timer.start("Creating the zip-zip-trie " + std::to_string(num_trials) + " times");
+
+	for (unsigned i = 0; i < num_trials; ++i)
+	{
+		ZipZipTrie<char, false> trie(words.size(), word_length);
+
+		for (const auto& word : bit_strings)
+		{
+			trie.insert(&word);
+		}
+	}
+
+	timer.print();
+
+	timer.start("Creating the memory-efficient zip-zip-trie " + std::to_string(num_trials) + " times");
+
+	for (unsigned i = 0; i < num_trials; ++i)
+	{
+		ZipZipTrie<char, true> trie(words.size(), word_length);
 
 		for (const auto& word : bit_strings)
 		{

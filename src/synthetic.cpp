@@ -30,15 +30,31 @@ std::vector<std::string> get_random_words(size_t length, size_t num_words, doubl
 	
 	std::vector<std::string> words(num_words, get_random_word(length));
 
-	for (auto& word : words)
+	// at the end of each word, I want to put a unique signature, to avoid duplicates
+	// the length of this signature must be such that alphabet_length ^ signature_length > num_words
+	// so that I can generate num_words unique signatures
+	// this can be calculated using logs
+	unsigned signature_length = std::ceil(std::log(num_words) / std::log(ALPHABET.size()));
+
+	for (size_t i = 0; i < num_words; ++i)
 	{
+		auto& word = words[i];
+
+		size_t i_copy = i;
+
+		for (size_t j = 0; j < signature_length; ++j)
+		{
+			word[j + length - signature_length] = ALPHABET[i_copy % ALPHABET.size()];
+			i_copy /= ALPHABET.size();
+		}
+
 		size_t difference = dis(gen);
-		if (difference >= length)
+		if (difference >= length - signature_length)
 		{
 			continue;
 		}
 
-		std::string random_word = get_random_word(length - difference);
+		std::string random_word = get_random_word(length - difference - signature_length);
 		std::copy(random_word.begin(), random_word.end(), word.begin() + difference);
 	}
 
