@@ -3,34 +3,34 @@
 #include <fstream>
 #include <string>
 
-void save_search_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions, size_t par_switch)
+void save_search_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions)
 {
 	static std::string PREFIX = DATA_DIRECTORY + HOSTNAME + "-" + SEARCH_DATA_FILENAME;
 
 	std::string filename = PREFIX + method + CSV_EXTENSION;
 
 	std::ofstream file(filename, std::ios::app);
-	file << n << "," << m << "," << l << "," << num_nanoseconds << "," << num_repetitions << "," << par_switch << std::endl;
+	file << n << "," << m << "," << l << "," << num_nanoseconds << "," << num_repetitions << std::endl;
 }
 
-void save_construction_data(const std::string& method, size_t n, size_t N, size_t L, size_t num_nanoseconds, size_t num_repetitions, size_t par_switch)
+void save_construction_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions)
 {
 	static std::string PREFIX = DATA_DIRECTORY + HOSTNAME + "-" + CONSTRUCTION_DATA_FILENAME;
 
 	std::string filename = PREFIX + method + CSV_EXTENSION;
 
 	std::ofstream file(filename, std::ios::app);
-	file << n << "," << N << "," << L << "," << num_nanoseconds << "," << num_repetitions << "," << par_switch << std::endl;
+	file << n << "," << m << "," << l << "," << num_nanoseconds << "," << num_repetitions << std::endl;
 }
 
-void save_removal_data(const std::string& method, size_t n, size_t N, size_t L, size_t num_nanoseconds, size_t num_repetitions, size_t par_switch)
+void save_removal_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions)
 {
 	static std::string PREFIX = DATA_DIRECTORY + HOSTNAME + "-" + REMOVAL_DATA_FILENAME;
 
 	std::string filename = PREFIX + method + CSV_EXTENSION;
 
 	std::ofstream file(filename, std::ios::app);
-	file << n << "," << N << "," << L << "," << num_nanoseconds << "," << num_repetitions << "," << par_switch << std::endl;
+	file << n << "," << m << "," << l << "," << num_nanoseconds << "," << num_repetitions << std::endl;
 }
 
 std::string get_hostname()

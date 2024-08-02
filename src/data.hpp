@@ -14,19 +14,18 @@ static const std::string CSV_EXTENSION = ".csv";
 // n: number of elements in skip list
 // m: length of search string
 // l: lcp of search string
-void save_search_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1, size_t par_switch = 0);
+void save_search_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1);
 
 // Save construction data to a file
 // n: number of elements to be inserted
-// N: total length of all inserted strings
-// L: total length of all lcp values between strings being added
-void save_construction_data(const std::string& method, size_t n, size_t N, size_t L, size_t num_nanoseconds, size_t num_repetitions = 1, size_t par_switch = 0);
+// m: string length
+// l: average lcp length
+void save_construction_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1);
 
 // Save removal data to a file
 // n: number of elements to be removed
-// N: total length of all removed strings
-// L: total length of all lcp values between strings being removed
-void save_removal_data(const std::string& method, size_t n, size_t N, size_t L, size_t num_nanoseconds, size_t num_repetitions = 1, size_t par_switch = 0);
+// m: string length
+void save_removal_data(const std::string& method, size_t n, size_t m, size_t num_nanoseconds, size_t num_repetitions = 1);
 
 std::string get_hostname();
 static const std::string HOSTNAME = get_hostname();

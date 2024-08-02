@@ -23,8 +23,8 @@ protected:
 	GeometricRank get_random_rank() const noexcept override
 	{
 		static std::random_device rd;
-		// static std::default_random_engine generator(rd());
-		static std::default_random_engine generator(1);
+		static std::default_random_engine generator(rd());
+		// static std::default_random_engine generator(1);
 		static std::geometric_distribution<uint8_t> g_dist(0.5);
 		static std::uniform_int_distribution<uint8_t> u_dist(0, std::numeric_limits<uint8_t>::max());
 
