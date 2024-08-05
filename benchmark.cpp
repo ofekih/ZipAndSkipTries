@@ -116,12 +116,12 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 	ZipZipTrie<char, true> memory_efficient_zip_zip_trie(num_words, word_length);
 	CTriePP<char, false> ctriepp;
 
-	for (const auto& datum : data)
+	for (size_t i = 0; i < num_words; ++i)
 	{
-		skip_trie.insert(&datum.bit_string);
-		zip_zip_trie.insert(&datum.bit_string);
-		memory_efficient_zip_zip_trie.insert(&datum.bit_string);
-		ctriepp.insert(datum.long_string, true);
+		skip_trie.insert(&data[i].bit_string);
+		zip_zip_trie.insert(&data[i].bit_string);
+		memory_efficient_zip_zip_trie.insert(&data[i].bit_string);
+		ctriepp.insert(data[i].long_string, true);
 	}
 
 	CPUTimer timer;
@@ -163,6 +163,12 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 	}
 
 	save_search_data("ctrie++", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+
+	if (all_found)
+	{
+		printf("Error: all elements were found\n");
+		printf("These print statements are here to prevent the compiler from optimizing out the search\n");
+	}
 }
 
 void run_variable_lcp_benchmarks(size_t num_words, size_t word_length, unsigned num_repetitions = 1000)
@@ -204,7 +210,7 @@ void run_variable_num_words_benchmarks(size_t max_num_words, size_t word_length,
 		timer.start("Running benchmarks for num words " + std::to_string(num_words));
 
 		run_construction_benchmark(num_words, word_length, mean_lcp, num_repetitions);
-		run_search_benchmark(num_words, word_length, mean_lcp, num_repetitions);
+		run_search_benchmark(num_words, word_length, mean_lcp, num_repetitions * 100);
 
 		timer.print();
 	}
@@ -212,7 +218,15 @@ void run_variable_num_words_benchmarks(size_t max_num_words, size_t word_length,
 
 int main(int argc, char* argv[])
 {
-	run_variable_lcp_benchmarks(1 << 10, 1 << 10);
+	// run_search_benchmark(1 << 10, 1 << 15, 1 << 15);
+
+	// std::exit(0);
+
+	// run_variable_lcp_benchmarks(1 << 10, 1 << 10);
+	unsigned num_repetitions = 100;
+	run_variable_lcp_benchmarks(1 << 10, 1 << 22, num_repetitions);
+	run_variable_word_length_benchmarks(1 << 10, 1 << 24, 1 << 10, num_repetitions);
+	run_variable_num_words_benchmarks(1 << 20, 1 << 10, 1 << 10, num_repetitions);
 
 	std::exit(0);
 
