@@ -2,7 +2,7 @@
 CC = g++
 
 # Compiler flags
-CFLAGS = -march=native -w -DNDEBUG -Wno-narrowing -std=c++20 -O3
+CFLAGS = -march=native -w -DNDEBUG -Wno-narrowing -std=c++23 -O3
 # CFLAGS = -march=native -Wall -Wextra -std=c++20 -O3
 
 # Dependency flags (generate dependency files during compilation)
