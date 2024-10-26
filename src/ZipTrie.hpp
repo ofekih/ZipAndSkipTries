@@ -43,7 +43,7 @@ struct GeometricRank
 	}
 };
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T = GeometricRank, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
 class ZipTrie
 {
 public:
@@ -148,26 +148,26 @@ private:
 	inline MemoryEfficientLCP get_memory_efficient_lcp(size_t num) const noexcept;
 };
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::ZipTrie(unsigned max_size, unsigned max_lcp_length): _root_index(NULLPTR), _max_lcp_length(max_lcp_length), _log_max_size(std::log2(max_size))
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ZipTrie(unsigned max_size, unsigned max_lcp_length): _root_index(NULLPTR), _max_lcp_length(max_lcp_length), _log_max_size(std::log2(max_size))
 {
 	_buckets.reserve(max_size);
 }
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-bool ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+bool ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return search(key).contains;
 }
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return search(key).max_lcp;
 }
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-typename ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::ComparisonResult ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::compare(const KEY_T* x, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ComparisonResult ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::compare(const KEY_T* x, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept
 {
 	auto predecessor_lcp = ancestor_lcps.predecessor;
 	auto successor_lcp = ancestor_lcps.successor;
@@ -193,8 +193,8 @@ typename ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::ComparisonRe
 	}
 }
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-typename ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::SearchResults ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResults ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	if (_buckets.empty())
 	{
@@ -231,15 +231,15 @@ typename ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::SearchResult
 	return { false, std::max(ancestor_lcps.predecessor, ancestor_lcps.successor), -1 };
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
 {
 	_buckets.push_back({ key, RANK_T::get_random() });
 	_root_index = insert_recursive(&_buckets.back(), size() - 1, _root_index);
 }
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-unsigned ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps) noexcept
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps) noexcept
 {
 	if (v_index == NULLPTR)
 	{
@@ -296,20 +296,20 @@ unsigned ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::insert_recur
 	return v_index;
 }
 
-template<typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-unsigned ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::size() const noexcept
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::size() const noexcept
 {
 	return _buckets.size();
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::height() const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height() const noexcept
 {
 	return height(_root_index);
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::height(unsigned node_index) const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height(unsigned node_index) const noexcept
 {
 	if (node_index == NULLPTR)
 	{
@@ -319,20 +319,20 @@ int ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::height(unsigned n
 	return std::max(height(_buckets[node_index].left), height(_buckets[node_index].right)) + 1;
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::get_depth(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_depth(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return search(key).depth;
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-double ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::get_average_height() const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+double ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_average_height() const noexcept
 {
 	return static_cast<double>(get_total_depth(_root_index, 0)) / size();
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-uint64_t ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::get_total_depth(unsigned node_index, uint64_t depth) const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+uint64_t ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_total_depth(unsigned node_index, uint64_t depth) const noexcept
 {
 	if (node_index == NULLPTR)
 	{
@@ -342,8 +342,8 @@ uint64_t ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::get_total_de
 	return get_total_depth(_buckets[node_index].left, depth + 1) + get_total_depth(_buckets[node_index].right, depth + 1) + depth;
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-MemoryEfficientLCP ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::get_memory_efficient_lcp(size_t num) const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+MemoryEfficientLCP ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_memory_efficient_lcp(size_t num) const noexcept
 {
 	if (num < _log_max_size)
 	{
@@ -357,8 +357,8 @@ MemoryEfficientLCP ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::ge
 	return lcp;
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::to_dot(const std::string& file_path) const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot(const std::string& file_path) const noexcept
 {
 	std::ofstream os(file_path);
 	os << "digraph G {\n";
@@ -376,8 +376,8 @@ std::ostream& operator<<(std::ostream& os, const MemoryEfficientLCP& lcp)
 	return lcp.print(os);
 }
 
-template <typename CHAR_T, typename RANK_T, bool MEMORY_EFFICIENT, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, RANK_T, MEMORY_EFFICIENT, CHAR_SIZE_BITS>::to_dot_recursive(std::ofstream& os, unsigned node_index) const noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot_recursive(std::ofstream& os, unsigned node_index) const noexcept
 {
 	if (node_index == NULLPTR)
 	{

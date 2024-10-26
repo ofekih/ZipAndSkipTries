@@ -1,6 +1,6 @@
 #include "src/BitString.hpp"
 #include "src/SkipTrie.hpp"
-#include "src/ZipZipTrie.hpp"
+#include "src/ZipTrie.hpp"
 #include "src/synthetic.hpp"
 #include "src/data.hpp"
 
@@ -68,7 +68,7 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 
 	for (unsigned i = 0; i < num_repetitions; ++i)
 	{
-		ZipZipTrie<char, false> trie(num_words, word_length);
+		ZipTrie<char, false> trie(num_words, word_length);
 
 		for (const auto& word : data)
 		{
@@ -76,13 +76,13 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 		}
 	}
 
-	save_construction_data("zip-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+	save_construction_data("memory-intensive-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
 	timer.start();
 
 	for (unsigned i = 0; i < num_repetitions; ++i)
 	{
-		ZipZipTrie<char, true> trie(num_words, word_length);
+		ZipTrie<char, true> trie(num_words, word_length);
 
 		for (const auto& word : data)
 		{
@@ -90,7 +90,7 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 		}
 	}
 
-	save_construction_data("memory-efficient-zip-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+	save_construction_data("zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
 	timer.start();
 
@@ -112,8 +112,8 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 	auto data = generate_data(num_words + num_repetitions, word_length, mean_lcp);
 
 	SkipTrie<char> skip_trie;
-	ZipZipTrie<char, false> zip_zip_trie(num_words, word_length);
-	ZipZipTrie<char, true> memory_efficient_zip_zip_trie(num_words, word_length);
+	ZipTrie<char, false> zip_zip_trie(num_words, word_length);
+	ZipTrie<char, true> memory_efficient_zip_zip_trie(num_words, word_length);
 	CTriePP<char, false> ctriepp;
 
 	for (size_t i = 0; i < num_words; ++i)
@@ -144,7 +144,7 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 		all_found &= zip_zip_trie.contains(&data[num_words + i].bit_string);
 	}
 
-	save_search_data("zip-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+	save_search_data("memory-intensive-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
 	timer.start();
 
@@ -153,7 +153,7 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 		all_found &= memory_efficient_zip_zip_trie.contains(&data[num_words + i].bit_string);
 	}
 
-	save_search_data("memory-efficient-zip-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+	save_search_data("zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
 	timer.start();
 
@@ -224,8 +224,8 @@ int main(int argc, char* argv[])
 
 	// run_variable_lcp_benchmarks(1 << 10, 1 << 10);
 	unsigned num_repetitions = 100;
-	run_variable_lcp_benchmarks(1 << 10, 1 << 22, num_repetitions);
-	run_variable_word_length_benchmarks(1 << 10, 1 << 24, 1 << 10, num_repetitions);
+	// run_variable_lcp_benchmarks(1 << 10, 1 << 22, num_repetitions);
+	// run_variable_word_length_benchmarks(1 << 10, 1 << 24, 1 << 10, num_repetitions);
 	run_variable_num_words_benchmarks(1 << 20, 1 << 10, 1 << 10, num_repetitions);
 
 	std::exit(0);
@@ -276,11 +276,11 @@ int main(int argc, char* argv[])
 
 	timer.print();
 
-	timer.start("Creating the zip-zip-trie " + std::to_string(num_trials) + " times");
+	timer.start("Creating the zip-trie " + std::to_string(num_trials) + " times");
 
 	for (unsigned i = 0; i < num_trials; ++i)
 	{
-		ZipZipTrie<char, false> trie(words.size(), word_length);
+		ZipTrie<char, false> trie(words.size(), word_length);
 
 		// size_t total_lcp = 0;
 		
@@ -295,11 +295,11 @@ int main(int argc, char* argv[])
 
 	timer.print();
 
-	timer.start("Creating the memory-efficient zip-zip-trie " + std::to_string(num_trials) + " times");
+	timer.start("Creating the memory-efficient zip-trie " + std::to_string(num_trials) + " times");
 
 	for (unsigned i = 0; i < num_trials; ++i)
 	{
-		ZipZipTrie<char, true> trie(words.size(), word_length);
+		ZipTrie<char, true> trie(words.size(), word_length);
 
 		for (const auto& word : bit_strings)
 		{
