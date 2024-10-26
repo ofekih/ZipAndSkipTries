@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BitString.hpp"
+#include "BitString.cuh"
 
 #include <compare>
 #include <limits>

@@ -124,7 +124,7 @@ public:
 	 * @param bs The BitString object to be printed.
 	 * @return A reference to the output stream after the BitString has been written.
 	 */
-	// friend std::ostream& operator<< <CHAR_T, CHAR_SIZE_BITS>(std::ostream& os, const BitString& bs);
+	friend std::ostream& operator<< <CHAR_T, CHAR_SIZE_BITS>(std::ostream& os, const BitString& bs);
 
 	/**
 	 * Prints the bytes of the BitString to the specified output stream.

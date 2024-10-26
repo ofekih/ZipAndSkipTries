@@ -1,4 +1,4 @@
-#include "src/BitString.hpp"
+#include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
 #include "src/synthetic.hpp"
 // #include "src/ZipZipTrie.hpp"
@@ -66,7 +66,7 @@ int main()
 
 	unsigned longest_word_length = std::max_element(WORDS.begin(), WORDS.end(), [](const std::string& a, const std::string& b) { return a.size() < b.size(); })->size();
 
-	ZipTrie<char, GeometricRank, true> trie(WORDS.size(), longest_word_length);
+	ZipTrie<char, true> trie(WORDS.size(), longest_word_length);
 	// ZipZipTrie<char, unsigned> trie = create_test_zzt();
 
 	// if (!trie.contains(&bit_strings[4]))

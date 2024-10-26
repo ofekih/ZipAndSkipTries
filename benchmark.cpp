@@ -1,4 +1,4 @@
-#include "src/BitString.hpp"
+#include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
 #include "src/ZipTrie.hpp"
 #include "src/synthetic.hpp"

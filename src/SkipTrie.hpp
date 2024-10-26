@@ -20,7 +20,7 @@
 
 #include <fstream> // for file operations
 
-#include "BitString.hpp" // for string representation
+#include "BitString.cuh" // for string representation
 
 /**
  * @enum Direction

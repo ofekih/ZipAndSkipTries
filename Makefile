@@ -1,9 +1,11 @@
 # Compiler
-CC = g++
+CC = nvcc
 
 # Compiler flags
-CFLAGS = -march=native -w -DNDEBUG -Wno-narrowing -std=c++23 -O3
-# CFLAGS = -march=native -Wall -Wextra -std=c++20 -O3
+COMPUTE_CAPABILITY=61
+
+GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY)
+CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 -O3
 
 # Dependency flags (generate dependency files during compilation)
 DEPFLAGS = -MMD -MP
@@ -26,13 +28,19 @@ EXECUTABLES = $(addprefix $(BIN_DIR)/,$(EXEC_NAMES))
 # List of .cpp files
 CPP_FILES = $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.cpp))
 
+# List of .cu files
+CU_FILES = $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.cu))
+
 # Object files corresponding to the .cpp files
-BASE_OBJ_FILES = $(filter-out $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(EXEC_NAMES))), $(CPP_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o))
+BASE_CPP_OBJ_FILES := $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(notdir $(CPP_FILES)))
+
+# Object files corresponding to the .cu files
+BASE_CU_OBJ_FILES := $(patsubst %.cu, $(OBJ_DIR)/%.o, $(notdir $(CU_FILES)))
+
+# Combine object files
+BASE_OBJ_FILES = $(BASE_CPP_OBJ_FILES) $(BASE_CU_OBJ_FILES)
 
 # Dependency files for each object file
-# DEP_FILES = $(BASE_OBJ_FILES:.o=.d)
-
-# get all dep files
 DEP_FILES = $(wildcard $(OBJ_DIR)/*.d)
 
 # Default target
@@ -44,6 +52,9 @@ directories:
 
 # Compile source files into object files
 $(OBJ_DIR)/%.o: %.cpp
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: %.cu
 	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # Include dependency files if they exist
@@ -66,6 +77,7 @@ docs:
 
 # Adjust pattern rules for finding source files not just in SRC_DIRS
 vpath %.cpp $(SRC_DIRS)
+vpath %.cu $(SRC_DIRS)
 
 # Clean
 clean:
