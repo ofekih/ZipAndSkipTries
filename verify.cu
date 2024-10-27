@@ -1,0 +1,100 @@
+#include "src/BitString.cuh"
+#include "src/SkipTrie.hpp"
+#include "src/ParallelSkipTrie.cuh"
+#include "src/synthetic.hpp"
+#include "src/ZipTrie.hpp"
+#include "src/ParallelZipTrie.cuh"
+
+#include <stdio.h>
+#include <cassert>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+int main()
+{
+	size_t word_length = 100;
+	size_t num_words = 1000;
+	size_t avg_lcp_length = 50;
+	auto words = get_random_words(word_length, num_words, avg_lcp_length);
+	
+	std::vector<BitString<char>> bs(num_words);
+	std::transform(words.begin(), words.end(), bs.begin(), [](const std::string& word) {
+		return BitString<char>(word);
+	});
+
+	// verify par_find_mismatch_s
+	{
+		printf("\nVerifying par_find_mismatch_s\n");
+
+		size_t max_size_words = (word_length + BitString<char>::ALPHA - 1) / BitString<char>::ALPHA;
+		uintmax_t *d_a = copy_to_device(bs[0].data(), bs[0].size());
+		uintmax_t *d_largeblock = alloc_large_block_to_device_s(max_size_words);
+		bool already_copied = true;
+
+		for (size_t i = 20; i < bs.size(); i++)
+		{
+			size_t expected = bs[0].seq_k_compare(bs[i], 0, bs[0].size()).lcp;
+			size_t result = bs[0].par_k_compare(bs[i], 0, bs[0].size(), d_a, d_largeblock, already_copied).lcp;
+
+			if (expected != result)
+			{
+				printf("Verification failed for words %zu and %zu\n", 0, i);
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		device_free(d_a);
+		device_free(d_largeblock);
+	}
+
+	// Verify SkipTrie
+	{
+		printf("\nVerifying SkipTrie\n");
+
+		SkipTrie<char> trie;
+
+		printf("\tInserting words\n");
+
+		for (const auto& word : bs)
+		{
+			trie.insert(&word);
+		}
+
+		printf("\tVerifying words\n");
+
+		for (const auto& word : bs)
+		{
+			if (!trie.contains(&word)) {
+				printf("Verification failed for word: %s\n", word.to_string().c_str());
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	// Verify ParallelSkipTrie
+	{
+		printf("\nVerifying ParallelSkipTrie\n");
+
+		ParallelSkipTrie<char> trie(word_length);
+
+		printf("\tInserting words\n");
+
+		for (const auto& word : bs)
+		{
+			trie.insert(&word);
+		}
+
+		printf("\tVerifying words\n");
+
+		for (const auto& word : bs)
+		{
+			if (!trie.contains(&word)) {
+				printf("Verification failed for word: %s\n", word.to_string().c_str());
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	return 0;
+}

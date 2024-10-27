@@ -3,9 +3,12 @@ CC = nvcc
 
 # Compiler flags
 COMPUTE_CAPABILITY=61
-
 GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY)
-CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 -O3
+
+SUPPRESS = 68 815 174
+DIAG_SUPPRESS = $(foreach diag,$(SUPPRESS),-diag-suppress=$(diag))
+
+CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 --expt-relaxed-constexpr $(DIAG_SUPPRESS)
 
 # Dependency flags (generate dependency files during compilation)
 DEPFLAGS = -MMD -MP
@@ -18,7 +21,7 @@ DOC_DIR = docs
 DATA_DIR = data
 
 # Executables names without prefix/suffix (just the target name)
-EXEC_NAMES = test benchmark
+EXEC_NAMES = test benchmark verify
 
 .PHONY: all directories clean $(EXEC_NAMES) docs
 

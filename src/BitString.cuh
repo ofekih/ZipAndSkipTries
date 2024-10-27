@@ -14,6 +14,11 @@
 #include <iostream>
 #include <stdio.h>
 
+#include "msw.cuh"
+#include "utility.cuh"
+
+static constexpr size_t MIN_PAR_COMPARE_WORD_SIZE = 1 << 2;
+
 /**
  * @brief A class to store strings compactly into integers, packing as many characters that fit into a single word.
  * 
@@ -30,6 +35,7 @@ class BitString
 public:
 	static constexpr unsigned WORD_SIZE_BITS = sizeof(uintmax_t) * 8; ///< Size of storage word in bits.
 	static constexpr unsigned ALPHA = WORD_SIZE_BITS / CHAR_SIZE_BITS; ///< Number of characters per word.
+	static constexpr size_t MIN_PAR_COMPARE_CHAR_SIZE = MIN_PAR_COMPARE_WORD_SIZE * ALPHA; ///< Minimum number of characters to compare in parallel.
 
 	/**
 	 * @brief Constructs a BitString object from a raw character array.
@@ -93,10 +99,16 @@ public:
 		size_t lcp;
 	};
 
-	ResultLCP compare(const BitString& other, size_t lcp, size_t max_compare) const noexcept;
-	ResultLCP compare(const BitString& other, size_t lcp) const noexcept
+	ResultLCP seq_k_compare(const BitString& other, size_t lcp, size_t max_compare) const noexcept;
+	ResultLCP seq_k_compare(const BitString& other, size_t lcp) const noexcept
 	{
-		return compare(other, lcp, size());
+		return seq_k_compare(other, lcp, size());
+	}
+
+	ResultLCP par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, bool& already_copied) const noexcept;
+	ResultLCP par_k_compare(const BitString& other, size_t lcp, uintmax_t* d_a, uintmax_t* d_largeblock, bool& already_copied) const noexcept
+	{
+		return par_k_compare(other, lcp, size(), d_a, d_largeblock, already_copied);
 	}
 
 	const uintmax_t* data() const noexcept { return m_data.data(); }
@@ -124,7 +136,7 @@ public:
 	 * @param bs The BitString object to be printed.
 	 * @return A reference to the output stream after the BitString has been written.
 	 */
-	friend std::ostream& operator<< <CHAR_T, CHAR_SIZE_BITS>(std::ostream& os, const BitString& bs);
+	// friend std::ostream& operator<< <CHAR_T, CHAR_SIZE_BITS>(std::ostream& os, const BitString& bs);
 
 	/**
 	 * Prints the bytes of the BitString to the specified output stream.
@@ -289,7 +301,7 @@ CHAR_T BitString<CHAR_T, CHAR_SIZE_BITS>::operator[](size_t index) const
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-auto BitString<CHAR_T, CHAR_SIZE_BITS>::compare(const BitString& other, size_t lcp, size_t max_compare) const noexcept -> ResultLCP
+auto BitString<CHAR_T, CHAR_SIZE_BITS>::seq_k_compare(const BitString& other, size_t lcp, size_t max_compare) const noexcept -> ResultLCP
 {
 	const size_t min_size = std::min(size(), other.size());
 	const size_t max_compare_until = lcp + max_compare;
@@ -326,6 +338,66 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::compare(const BitString& other, size_t l
 	}
 
 	return { std::strong_ordering::equal, lcp };
+}
+
+template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
+auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, bool& already_copied) const noexcept -> ResultLCP
+{
+
+	if (max_compare <= MIN_PAR_COMPARE_CHAR_SIZE)
+	{
+		return seq_k_compare(other, lcp, max_compare);
+	}
+
+	const size_t min_size = std::min(size(), other.size());
+	const size_t min_word_count = std::min(word_count(), other.word_count());
+	size_t word_index = lcp / ALPHA;
+
+	const size_t num_remaining_words = min_word_count - word_index;
+	const size_t max_compare_words = (max_compare + ALPHA - 1) / ALPHA;
+	const size_t actual_max_compare_words = std::min(max_compare_words, num_remaining_words);
+
+	if (actual_max_compare_words <= MIN_PAR_COMPARE_WORD_SIZE)
+	{
+		return seq_k_compare(other, lcp, max_compare);
+	}
+
+	if (!already_copied)
+	{
+		copy_to_device(d_a + word_index, data() + word_index, word_count() - word_index);
+		already_copied = true;
+	}
+
+	lcp -= lcp % ALPHA; // Reset to word boundary
+
+	auto msw = par_find_mismatch_s(d_a + word_index, other.data() + word_index, d_largeblock, actual_max_compare_words);
+
+	lcp += msw * ALPHA;
+
+	if (msw == actual_max_compare_words) // no msw found, it was equal
+	{
+		if (lcp >= min_size)
+		{
+			return { size() <=> other.size(), min_size };
+		}
+
+		return { std::strong_ordering::equal, lcp };
+	}
+
+	word_index = lcp / ALPHA;
+
+	const uintmax_t XOR = m_data[word_index] ^ other.m_data[word_index];
+
+	const size_t l_zero = std::countl_zero(XOR);
+
+	lcp += l_zero / CHAR_SIZE_BITS;
+
+	const size_t bit_index = lcp % ALPHA;
+
+	const CHAR_T lhs = GET_CHAR(m_data[word_index], bit_index);
+	const CHAR_T rhs = GET_CHAR(other.m_data[word_index], bit_index);
+
+	return { lhs <=> rhs, lcp };
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>

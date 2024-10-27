@@ -1,6 +1,8 @@
 #include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
+#include "src/ParallelSkipTrie.cuh"
 #include "src/ZipTrie.hpp"
+#include "src/ParallelZipTrie.cuh"
 #include "src/synthetic.hpp"
 #include "src/data.hpp"
 
@@ -68,6 +70,20 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 
 	for (unsigned i = 0; i < num_repetitions; ++i)
 	{
+		ParallelSkipTrie<char> trie(word_length);
+
+		for (const auto& word : data)
+		{
+			trie.insert(&word.bit_string);
+		}
+	}
+
+	save_construction_data("parallel-skip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+
+	timer.start();
+
+	for (unsigned i = 0; i < num_repetitions; ++i)
+	{
 		ZipTrie<char, false> trie(num_words, word_length);
 
 		for (const auto& word : data)
@@ -77,6 +93,20 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 	}
 
 	save_construction_data("memory-intensive-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+
+	// timer.start();
+
+	// for (unsigned i = 0; i < num_repetitions; ++i)
+	// {
+	// 	ParallelZipTrie<char, false> trie(num_words, word_length);
+
+	// 	for (const auto& word : data)
+	// 	{
+	// 		trie.insert(&word.bit_string);
+	// 	}
+	// }
+
+	// save_construction_data("parallel-memory-intensive-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
 
 	timer.start();
 
@@ -96,15 +126,29 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 
 	for (unsigned i = 0; i < num_repetitions; ++i)
 	{
-		CTriePP<char, false> ctriepp;
+		ParallelZipTrie<char, true> trie(num_words, word_length);
 
 		for (const auto& word : data)
 		{
-			ctriepp.insert(word.long_string, true);
+			trie.insert(&word.bit_string);
 		}
 	}
 
-	save_construction_data("ctrie++", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+	save_construction_data("parallel-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+
+	// timer.start();
+
+	// for (unsigned i = 0; i < num_repetitions; ++i)
+	// {
+	// 	CTriePP<char, false> ctriepp;
+
+	// 	for (const auto& word : data)
+	// 	{
+	// 		ctriepp.insert(word.long_string, true);
+	// 	}
+	// }
+
+	// save_construction_data("ctrie++", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 }
 
 void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp, unsigned num_repetitions = 1000)
@@ -112,16 +156,22 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 	auto data = generate_data(num_words + num_repetitions, word_length, mean_lcp);
 
 	SkipTrie<char> skip_trie;
-	ZipTrie<char, false> zip_zip_trie(num_words, word_length);
-	ZipTrie<char, true> memory_efficient_zip_zip_trie(num_words, word_length);
-	CTriePP<char, false> ctriepp;
+	ParallelSkipTrie<char> parallel_skip_trie(word_length);
+	ZipTrie<char, false> memory_intensive_zip_trie(num_words, word_length);
+	// ParallelZipTrie<char, false> parallel_memory_intensive_zip_trie(num_words, word_length);
+	ZipTrie<char, true> zip_trie(num_words, word_length);
+	// ParallelZipTrie<char, true> parallel_zip_trie(num_words, word_length);
+	// CTriePP<char, false> ctriepp;
 
 	for (size_t i = 0; i < num_words; ++i)
 	{
 		skip_trie.insert(&data[i].bit_string);
-		zip_zip_trie.insert(&data[i].bit_string);
-		memory_efficient_zip_zip_trie.insert(&data[i].bit_string);
-		ctriepp.insert(data[i].long_string, true);
+		parallel_skip_trie.insert(&data[i].bit_string);
+		memory_intensive_zip_trie.insert(&data[i].bit_string);
+		// parallel_memory_intensive_zip_trie.insert(&data[i].bit_string);
+		zip_trie.insert(&data[i].bit_string);
+		// parallel_zip_trie.insert(&data[i].bit_string);
+		// ctriepp.insert(data[i].long_string, true);
 	}
 
 	CPUTimer timer;
@@ -141,28 +191,55 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 
 	for (unsigned i = 0; i < num_repetitions; ++i)
 	{
-		all_found &= zip_zip_trie.contains(&data[num_words + i].bit_string);
+		all_found &= parallel_skip_trie.contains(&data[num_words + i].bit_string);
+	}
+
+	save_search_data("parallel-skip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+
+	timer.start();
+
+	for (unsigned i = 0; i < num_repetitions; ++i)
+	{
+		all_found &= memory_intensive_zip_trie.contains(&data[num_words + i].bit_string);
 	}
 
 	save_search_data("memory-intensive-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
+	// timer.start();
+
+	// for (unsigned i = 0; i < num_repetitions; ++i)
+	// {
+	// 	all_found &= parallel_memory_intensive_zip_trie.contains(&data[num_words + i].bit_string);
+	// }
+
+	// save_search_data("parallel-memory-intensive-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+
 	timer.start();
 
 	for (unsigned i = 0; i < num_repetitions; ++i)
 	{
-		all_found &= memory_efficient_zip_zip_trie.contains(&data[num_words + i].bit_string);
+		all_found &= zip_trie.contains(&data[num_words + i].bit_string);
 	}
 
 	save_search_data("zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
-	timer.start();
+	// timer.start();
 
-	for (unsigned i = 0; i < num_repetitions; ++i)
-	{
-		all_found &= ctriepp.contains(data[num_words + i].long_string);
-	}
+	// for (unsigned i = 0; i < num_repetitions; ++i)
+	// {
+	// 	all_found &= parallel_zip_trie.contains(&data[num_words + i].bit_string);
+	// }
 
-	save_search_data("ctrie++", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
+	// save_search_data("parallel-zip-trie", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+
+	// timer.start();
+
+	// for (unsigned i = 0; i < num_repetitions; ++i)
+	// {
+	// 	all_found &= ctriepp.contains(data[num_words + i].long_string);
+	// }
+
+	// save_search_data("ctrie++", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions);
 
 	if (all_found)
 	{
@@ -224,9 +301,11 @@ int main(int argc, char* argv[])
 
 	// run_variable_lcp_benchmarks(1 << 10, 1 << 10);
 	unsigned num_repetitions = 100;
-	// run_variable_lcp_benchmarks(1 << 10, 1 << 22, num_repetitions);
-	// run_variable_word_length_benchmarks(1 << 10, 1 << 24, 1 << 10, num_repetitions);
-	run_variable_num_words_benchmarks(1 << 20, 1 << 10, 1 << 10, num_repetitions);
+	// unsigned num_repetitions = 1;
+	run_variable_lcp_benchmarks(1 << 10, 1 << 22, num_repetitions);
+	run_variable_word_length_benchmarks(1 << 10, 1 << 23, 1 << 10, num_repetitions);
+	// run_variable_word_length_benchmarks(1 << 10, 1 << 2, 1 << 10, num_repetitions);
+	run_variable_num_words_benchmarks(1 << 19, 1 << 10, 1 << 10, num_repetitions);
 
 	std::exit(0);
 

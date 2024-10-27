@@ -9,48 +9,23 @@
 #include <fstream>
 #include <string>
 
-struct MemoryEfficientLCP
-{
-	uint8_t exp_of_2 = 0;
-	uint8_t multiple = 0;
+#include "ZipTrie.hpp" // for MemoryEfficientLCP and GeometricRank
 
-	auto operator<=>(const MemoryEfficientLCP&) const = default;
+#include "utility.cuh"
 
-	unsigned value() const noexcept
-	{
-		return std::pow(2, exp_of_2) * multiple;
-	}
+#include <iostream>
 
-	std::ostream& print(std::ostream& os) const noexcept;
-};
-
-struct GeometricRank
-{
-	uint8_t geometric_rank;
-	uint8_t uniform_rank;
-
-	auto operator<=>(const GeometricRank&) const = default;
-
-	static GeometricRank get_random()
-	{
-		static std::random_device rd;
-		static std::default_random_engine generator(rd());
-		// static std::default_random_engine generator(1);
-		static std::geometric_distribution<uint8_t> g_dist(0.5);
-		static std::uniform_int_distribution<uint8_t> u_dist(0, std::numeric_limits<uint8_t>::max());
-
-		return { g_dist(generator), u_dist(generator) };
-	}
-};
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T = GeometricRank, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
-class ZipTrie
+class ParallelZipTrie
 {
 public:
 	using LCP_T = std::conditional_t<MEMORY_EFFICIENT, MemoryEfficientLCP, unsigned>;
 	using KEY_T = BitString<CHAR_T, CHAR_SIZE_BITS>;
 
-	ZipTrie(unsigned max_size, unsigned max_lcp_length);
+	ParallelZipTrie(unsigned max_size, unsigned max_lcp_length);
+
+	~ParallelZipTrie();
 
 	int get_depth(const KEY_T* key) const noexcept;
 	int height() const noexcept;
@@ -129,19 +104,22 @@ protected:
 	std::vector<Bucket> _buckets;
 
 private:
+	uintmax_t* d_a;
+	uintmax_t* d_largeblock;
+
 	struct ComparisonResult
 	{
 		std::strong_ordering comparison;
 		LCP_T lcp;
 	};
 
-	inline ComparisonResult k_compare(const KEY_T* x_key, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept;
+	inline ComparisonResult k_compare(const KEY_T* x_key, const Bucket& v, const AncestorLCPs& ancestor_lcps, size_t& comparison_size, bool& already_copied) const noexcept;
 
 	int height(unsigned node_index) const noexcept;
 	uint64_t get_total_depth(unsigned node_index, uint64_t depth) const noexcept;
 
 	
-	unsigned insert_recursive(Bucket* x, unsigned x_index, unsigned node_index, AncestorLCPs ancestor_lcps = {}) noexcept;
+	unsigned insert_recursive(Bucket* x, unsigned x_index, unsigned node_index, size_t& comparison_size, bool& already_copied, AncestorLCPs ancestor_lcps = {}) noexcept;
 
 	void to_dot_recursive(std::ofstream& os, unsigned node_index) const noexcept;
 
@@ -149,25 +127,35 @@ private:
 };
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ZipTrie(unsigned max_size, unsigned max_lcp_length): _root_index(NULLPTR), _max_lcp_length(max_lcp_length), _log_max_size(std::log2(max_size))
+ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ParallelZipTrie(unsigned max_size, unsigned max_lcp_length): _root_index(NULLPTR), _max_lcp_length(max_lcp_length), _log_max_size(std::log2(max_size))
 {
 	_buckets.reserve(max_size);
+	size_t max_lcp_length_words = (max_lcp_length + BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA - 1) / BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA;
+	d_a = alloc_to_device<uintmax_t>(max_lcp_length_words);
+	d_largeblock = alloc_large_block_to_device_s(max_lcp_length_words);
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-bool ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::~ParallelZipTrie()
+{
+	device_free(d_a);
+	device_free(d_largeblock);
+}
+
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+bool ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return search(key).contains;
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return search(key).max_lcp;
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ComparisonResult ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::k_compare(const KEY_T* x, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept
+typename ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ComparisonResult ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::k_compare(const KEY_T* x, const Bucket& v, const AncestorLCPs& ancestor_lcps, size_t& comparison_size, bool& already_copied) const noexcept
 {
 	auto predecessor_lcp = ancestor_lcps.predecessor;
 	auto successor_lcp = ancestor_lcps.successor;
@@ -183,20 +171,52 @@ typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ComparisonRe
 		};
 	}
 
+	std::strong_ordering true_comparison = std::strong_ordering::equal;
+	size_t true_lcp;
 	if constexpr (MEMORY_EFFICIENT)
 	{
-		auto [comparison, lcp] = x->seq_k_compare(*v.key, x_max_lcp.value());
-		return { comparison, get_memory_efficient_lcp(lcp) };
+		true_lcp = x_max_lcp.value();
 	}
 	else
 	{
-		auto [comparison, lcp] = x->seq_k_compare(*v.key, x_max_lcp);
-		return { comparison, static_cast<LCP_T>(lcp) };
+		true_lcp = x_max_lcp;
+	}
+
+	// LCP-aware parallel comparisons
+	while (true)
+	{
+		auto [comparison, next_lcp] = x->par_k_compare(*v.key, true_lcp, comparison_size, d_a, d_largeblock, already_copied);
+		true_comparison = comparison;
+		true_lcp = next_lcp;
+
+		if (comparison == std::strong_ordering::equal)
+		{
+			if (next_lcp == x->size() && next_lcp == v.key->size())
+			{
+				break;
+			}
+
+			comparison_size *= 2;
+			continue;
+		}
+
+		comparison_size = std::max(1uL, comparison_size / 2);
+		// comparison_size = std::max(BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE, comparison_size / 2);
+		break;
+	}
+
+	if constexpr (MEMORY_EFFICIENT)
+	{
+		return { true_comparison, get_memory_efficient_lcp(true_lcp) };
+	}
+	else
+	{
+		return { true_comparison, static_cast<LCP_T>(true_lcp) };
 	}
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResults ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+typename ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResults ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	if (_buckets.empty())
 	{
@@ -206,10 +226,12 @@ typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResult
 	unsigned v_index = _root_index;
 	AncestorLCPs ancestor_lcps = {};
 	int depth = 0;
+	size_t comparison_size = 1;
+	bool already_copied = false;
 
 	while (v_index != NULLPTR)
 	{
-		auto [ comparison, lcp ] = k_compare(key, _buckets[v_index], ancestor_lcps);
+		auto [ comparison, lcp ] = k_compare(key, _buckets[v_index], ancestor_lcps, comparison_size, already_copied);
 
 		if (comparison == std::strong_ordering::equal)
 		{
@@ -234,14 +256,17 @@ typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResult
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+void ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
 {
+	size_t comparison_size = 1;
+	bool already_copied = false;
+
 	_buckets.push_back({ key, RANK_T::get_random() });
-	_root_index = insert_recursive(&_buckets.back(), size() - 1, _root_index);
+	_root_index = insert_recursive(&_buckets.back(), size() - 1, _root_index, comparison_size, already_copied);
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps) noexcept
+unsigned ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, size_t& comparison_size, bool& already_copied, AncestorLCPs ancestor_lcps) noexcept
 {
 	if (v_index == NULLPTR)
 	{
@@ -249,7 +274,7 @@ unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recur
 		return x_index;
 	}
 
-	auto [ comparison, lcp ] = k_compare(x->key, _buckets[v_index], ancestor_lcps);
+	auto [ comparison, lcp ] = k_compare(x->key, _buckets[v_index], ancestor_lcps, comparison_size, already_copied);
 
 	if (comparison == std::strong_ordering::equal)
 	{
@@ -258,7 +283,7 @@ unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recur
 
 	if (comparison == std::strong_ordering::less)
 	{
-		unsigned subroot_index = insert_recursive(x, x_index, _buckets[v_index].left, { ancestor_lcps.predecessor, std::max(ancestor_lcps.successor, lcp) });
+		unsigned subroot_index = insert_recursive(x, x_index, _buckets[v_index].left, comparison_size, already_copied, { ancestor_lcps.predecessor, std::max(ancestor_lcps.successor, lcp) });
 
 		if (subroot_index == x_index && x->rank >= _buckets[v_index].rank)
 		{
@@ -277,7 +302,7 @@ unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recur
 	}
 	else
 	{
-		unsigned subroot_index = insert_recursive(x, x_index, _buckets[v_index].right, { std::max(ancestor_lcps.predecessor, lcp), ancestor_lcps.successor });
+		unsigned subroot_index = insert_recursive(x, x_index, _buckets[v_index].right, comparison_size, already_copied, { std::max(ancestor_lcps.predecessor, lcp), ancestor_lcps.successor });
 
 		if (subroot_index == x_index && x->rank >= _buckets[v_index].rank)
 		{
@@ -299,19 +324,19 @@ unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recur
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::size() const noexcept
+unsigned ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::size() const noexcept
 {
 	return _buckets.size();
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height() const noexcept
+int ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height() const noexcept
 {
 	return height(_root_index);
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height(unsigned node_index) const noexcept
+int ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height(unsigned node_index) const noexcept
 {
 	if (node_index == NULLPTR)
 	{
@@ -322,19 +347,19 @@ int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height(unsigned n
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_depth(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+int ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_depth(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return search(key).depth;
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-double ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_average_height() const noexcept
+double ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_average_height() const noexcept
 {
 	return static_cast<double>(get_total_depth(_root_index, 0)) / size();
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-uint64_t ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_total_depth(unsigned node_index, uint64_t depth) const noexcept
+uint64_t ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_total_depth(unsigned node_index, uint64_t depth) const noexcept
 {
 	if (node_index == NULLPTR)
 	{
@@ -345,7 +370,7 @@ uint64_t ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_total_de
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-MemoryEfficientLCP ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_memory_efficient_lcp(size_t num) const noexcept
+MemoryEfficientLCP ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_memory_efficient_lcp(size_t num) const noexcept
 {
 	if (num < _log_max_size)
 	{
@@ -360,7 +385,7 @@ MemoryEfficientLCP ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ge
 }
 
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot(const std::string& file_path) const noexcept
+void ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot(const std::string& file_path) const noexcept
 {
 	std::ofstream os(file_path);
 	os << "digraph G {\n";
@@ -368,18 +393,8 @@ void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot(const std
 	os << "}\n";
 }
 
-std::ostream& MemoryEfficientLCP::print(std::ostream& os) const noexcept
-{
-	return os << "2^" << static_cast<unsigned>(exp_of_2) << " * " << static_cast<unsigned>(multiple);
-}
-
-std::ostream& operator<<(std::ostream& os, const MemoryEfficientLCP& lcp)
-{
-	return lcp.print(os);
-}
-
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot_recursive(std::ofstream& os, unsigned node_index) const noexcept
+void ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::to_dot_recursive(std::ofstream& os, unsigned node_index) const noexcept
 {
 	if (node_index == NULLPTR)
 	{

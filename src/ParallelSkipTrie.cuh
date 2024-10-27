@@ -1,8 +1,8 @@
 /**
- * @file SkipTrie.hpp
- * @brief Definition of the SkipTrie class for efficient string storage and retrieval.
+ * @file ParallelSkipTrie.hpp
+ * @brief Definition of the ParallelSkipTrie class for efficient string storage and retrieval.
  *
- * The SkipTrie is a templated class designed to store strings in a manner that allows for fast insertion, deletion,
+ * The ParallelSkipTrie is a templated class designed to store strings in a manner that allows for fast insertion, deletion,
  * and lookup operations. It is particularly optimized for strings, utilizing a bit-level representation to minimize
  * comparison operations. The implementation uses a skip list data structure, where each node has links that skip over
  * multiple elements, allowing for logarithmic average time complexities for its primary operations.
@@ -21,33 +21,29 @@
 #include <fstream> // for file operations
 
 #include "BitString.cuh" // for string representation
+#include "SkipTrie.hpp" // for Direction
+
+#include "utility.cuh"
+#include "msw.cuh"
+
 
 /**
- * @enum Direction
- * @brief Enumerates the possible traversal directions within the skip list.
- */
-enum class Direction
-{
-	FORWARD, ///< Represents forward traversal direction.
-	BACKWARD, ///< Represents backward traversal direction.
-	INPLACE ///< Indicates no traversal, used for operations that do not require movement.
-};
-
-/**
- * @class SkipTrie
+ * @class ParallelSkipTrie
  * @brief Implements a skip list specifically optimized for string storage.
  *
  * @tparam CHAR_T The character type of the strings to be stored. Defaults to char.
  * @tparam CHAR_SIZE_BITS The size in bits of the character type. Defaults to the bit-size of CHAR_T.
  */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
-class SkipTrie
+class ParallelSkipTrie
 {
 public:
 	/**
 	 * @brief Constructs a new String Skip List object.
 	 */
-	SkipTrie();
+	ParallelSkipTrie(size_t max_size);
+
+	~ParallelSkipTrie();
 
 	/**
 	 * @brief Generates a random height for a new node based on a geometric distribution.
@@ -79,8 +75,6 @@ public:
 	 */
 	std::ostream& print(std::ostream& os) const noexcept;
 
-	std::string to_string() const noexcept;
-
 	size_t size() const noexcept { return m_size; }
 	size_t height() const noexcept { return m_height; }
 
@@ -97,6 +91,11 @@ public:
 private:
 	size_t m_size; ///< Stores the number of elements in the skip list.
 	size_t m_height; ///< Stores the current height of the skip list.
+	size_t m_max_size;
+	uintmax_t* d_a;
+	uintmax_t* d_largeblock;
+	mutable size_t m_comparison_size;
+	mutable bool m_already_copied;
 
 	/**
 	 * @struct Node
@@ -182,12 +181,20 @@ private:
 	// NOTE: RESETS LCP
 	EqualOrSuccessor find_equal_or_successor(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept;
 
+	struct ResultLCP
+	{
+		std::strong_ordering result;
+		size_t lcp;
+	};
+
+	ResultLCP compare(const BitString<CHAR_T, CHAR_SIZE_BITS>* key1, const BitString<CHAR_T, CHAR_SIZE_BITS>* key2, size_t lcp) const noexcept;
+
 public:
 	/**
 	 * @class Iterator
-	 * @brief An iterator for the SkipTrie class, allowing forward and backward traversal of the list.
+	 * @brief An iterator for the ParallelSkipTrie class, allowing forward and backward traversal of the list.
 	 *
-	 * The Iterator class provides a means to traverse through the elements of the SkipTrie, either in forward
+	 * The Iterator class provides a means to traverse through the elements of the ParallelSkipTrie, either in forward
 	 * or backward direction, depending on the instantiation. It encapsulates the logic for moving between nodes and
 	 * accessing their keys, offering both pre-increment and post-increment operations.
 	 */
@@ -258,32 +265,32 @@ public:
 };
 
 /**
- * @brief Stream insertion operator for printing the SkipTrie.
+ * @brief Stream insertion operator for printing the ParallelSkipTrie.
  * @tparam CHAR_T The character type of the strings stored in the list.
  * @tparam CHAR_SIZE_BITS The size in bits of the character type.
  * @param os The output stream to which the skip list is to be printed.
- * @param ssl The SkipTrie object to print.
+ * @param ssl The ParallelSkipTrie object to print.
  * @return std::ostream& The output stream, for chaining.
  */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::ostream& operator<<(std::ostream& os, const SkipTrie<CHAR_T, CHAR_SIZE_BITS>& ssl);
+std::ostream& operator<<(std::ostream& os, const ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>& ssl);
 
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::Iterator(Node* node, Direction direction) noexcept
+ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::Iterator(Node* node, Direction direction) noexcept
 	: m_node(node), m_direction(direction)
 {
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator& SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator++() noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator& ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator++() noexcept
 {
 	m_node = m_node->next_node(m_direction);
 	return *this;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator++(int) noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator++(int) noexcept
 {
 	Iterator temp = *this;
 	++(*this);
@@ -291,43 +298,43 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator SkipTrie<CHAR_T, CHAR_SIZE_B
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-const BitString<CHAR_T, CHAR_SIZE_BITS>& SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator*() const noexcept
+const BitString<CHAR_T, CHAR_SIZE_BITS>& ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator*() const noexcept
 {
 	return *m_node->key;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-const BitString<CHAR_T, CHAR_SIZE_BITS>* SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator->() const noexcept
+const BitString<CHAR_T, CHAR_SIZE_BITS>* ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator->() const noexcept
 {
 	return m_node->key;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator==(const Iterator& other) const noexcept
+bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator==(const Iterator& other) const noexcept
 {
 	return m_node == other.m_node;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator!=(const Iterator& other) const noexcept
+bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator::operator!=(const Iterator& other) const noexcept
 {
 	return !(*this == other);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator SkipTrie<CHAR_T, CHAR_SIZE_BITS>::begin() const noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::begin() const noexcept
 {
 	return Iterator(m_lower_head->next.get(), Direction::FORWARD);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator SkipTrie<CHAR_T, CHAR_SIZE_BITS>::end() const noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Iterator ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::end() const noexcept
 {
 	return Iterator(m_lower_tail.get(), Direction::FORWARD);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node::lcp(Direction direction) const noexcept
+size_t ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node::lcp(Direction direction) const noexcept
 {
 	if (direction == Direction::FORWARD)
 	{
@@ -338,7 +345,7 @@ size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node::lcp(Direction direction) const no
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node* SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node::next_node(Direction direction) const noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node* ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node::next_node(Direction direction) const noexcept
 {
 	if (direction == Direction::FORWARD)
 	{
@@ -349,24 +356,34 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node* SkipTrie<CHAR_T, CHAR_SIZE_BITS
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-SkipTrie<CHAR_T, CHAR_SIZE_BITS>::SkipTrie()
-	: m_size(0), m_height(0)
+ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::ParallelSkipTrie(size_t max_size)
+	: m_size(0), m_height(0), m_max_size(max_size)
 {
+	size_t max_size_words = (max_size + BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA - 1) / BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA;
+	d_a = alloc_to_device<uintmax_t>(max_size_words);
+	d_largeblock = alloc_large_block_to_device_s(max_size_words);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::get_random_height()
+ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::~ParallelSkipTrie()
+{
+	device_free(d_a);
+	device_free(d_largeblock);
+}
+
+template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
+size_t ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::get_random_height()
 {
 	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	// static std::mt19937 gen(1);
+	// static std::mt19937 gen(rd());
+	static std::mt19937 gen(1);
 	static std::geometric_distribution<size_t> dist(0.5);
 	
 	return dist(gen);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-void SkipTrie<CHAR_T, CHAR_SIZE_BITS>::add_layer() noexcept
+void ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::add_layer() noexcept
 {
 	std::shared_ptr<Node> new_head = std::make_shared<Node>();
 	std::shared_ptr<Node> new_tail = std::make_shared<Node>();
@@ -390,7 +407,7 @@ void SkipTrie<CHAR_T, CHAR_SIZE_BITS>::add_layer() noexcept
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-void SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove_layer() noexcept
+void ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove_layer() noexcept
 {
 	m_head = m_head->down;
 	--m_height;
@@ -403,7 +420,41 @@ void SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove_layer() noexcept
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node*& curr, Direction direction, size_t& lcp) const noexcept
+auto ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::compare(const BitString<CHAR_T, CHAR_SIZE_BITS>* key1, const BitString<CHAR_T, CHAR_SIZE_BITS>* key2, size_t lcp) const noexcept -> ResultLCP
+{
+	ResultLCP result = { std::strong_ordering::equal, lcp };
+
+	while (true)
+	{
+		auto [comparison, next_lcp] = key1->par_k_compare(*key2, lcp, m_comparison_size, d_a, d_largeblock, m_already_copied);
+		
+		result.result = comparison;
+		result.lcp = next_lcp;
+
+		if (comparison == std::strong_ordering::equal)
+		{
+			if (result.lcp == key1->size() && result.lcp == key2->size())
+			{
+				return result;
+			}
+
+			m_comparison_size *= 2;
+			lcp = result.lcp;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	// m_comparison_size = std::max(1ul, m_comparison_size / 2);
+	m_comparison_size = std::max(BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE, m_comparison_size / 2);
+
+	return result;
+}
+
+template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
+Direction ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node*& curr, Direction direction, size_t& lcp) const noexcept
 {
 	if (direction == Direction::INPLACE)
 	{
@@ -423,7 +474,8 @@ Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, C
 		}
 		
 		// if equal, must actually compare
-		auto [comparison, next_lcp] = key->seq_k_compare(*next->key, lcp);
+		auto [comparison, next_lcp] = compare(key, next->key, lcp);
+		// auto [comparison, next_lcp] = key->seq_compare(*next->key, lcp);
 		lcp = next_lcp;
 
 		curr = next;
@@ -454,7 +506,7 @@ Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, C
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::NodeLCP SkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_first(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::NodeLCP ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_first(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept
 {
 	auto [node, is_equal, lcp] = find_equal_or_successor(key, require_level0);
 
@@ -462,24 +514,27 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::NodeLCP SkipTrie<CHAR_T, CHAR_SIZE_BI
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return find_first(key).node;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
 {
 	return insert(key, get_random_height());
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, size_t height) noexcept
+bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, size_t height) noexcept
 {
 	while (height + 1 >= m_height)
 	{
 		add_layer();
 	}
+
+	m_comparison_size = BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE;
+	m_already_copied = false;
 
 	bool already_exists = insert_recursive(key, m_head.get(), height, Direction::FORWARD, 0, m_height - 1) == nullptr;
 
@@ -493,7 +548,7 @@ bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::shared_ptr<typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert_recursive(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node* curr, size_t height, Direction direction, size_t lcp, size_t current_height) noexcept
+std::shared_ptr<typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node> ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert_recursive(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node* curr, size_t height, Direction direction, size_t lcp, size_t current_height) noexcept
 {
 	Direction next_direction = iter_layer(key, curr, direction, lcp);
 
@@ -547,7 +602,7 @@ std::shared_ptr<typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node> SkipTrie<CHAR_T
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
 {
 	Node* curr = find_first(key).node;
 
@@ -585,13 +640,13 @@ bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove(const BitString<CHAR_T, CHAR_SIZE_
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+size_t ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	return find_first(key).lcp;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp_with_others(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+size_t ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp_with_others(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	auto [node, lcp] = find_first(key, true);
 
@@ -604,7 +659,7 @@ size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp_with_others(const BitString<CHAR_T,
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::suffix_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::suffix_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
 {
 	std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> keys;
 
@@ -628,7 +683,7 @@ std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor SkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_equal_or_successor(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept
+typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_equal_or_successor(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept
 {
 	if (!m_head)
 	{
@@ -639,6 +694,9 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor SkipTrie<CHAR_T, CHA
 	Node* prev = nullptr;
 	Direction direction = Direction::FORWARD;
 	size_t lcp = 0;
+
+	m_comparison_size = BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE;
+	m_already_copied = false;
 
 	while (curr)
 	{
@@ -663,7 +721,7 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor SkipTrie<CHAR_T, CHA
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::range_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key1, const BitString<CHAR_T, CHAR_SIZE_BITS>* key2) const noexcept
+std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::range_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key1, const BitString<CHAR_T, CHAR_SIZE_BITS>* key2) const noexcept
 {
 	std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> keys;
 
@@ -691,7 +749,7 @@ std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::unordered_map<size_t, size_t> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::get_lcp_group_sizes() const noexcept
+std::unordered_map<size_t, size_t> ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::get_lcp_group_sizes() const noexcept
 {
 	std::unordered_map<size_t, size_t> lcp_group_sizes;
 
@@ -731,12 +789,12 @@ std::unordered_map<size_t, size_t> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::get_lcp_gro
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::ostream& operator<<(std::ostream& os, const SkipTrie<CHAR_T, CHAR_SIZE_BITS>& ssl) {
+std::ostream& operator<<(std::ostream& os, const ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>& ssl) {
 	return ssl.print(os);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::ostream& SkipTrie<CHAR_T, CHAR_SIZE_BITS>::print(std::ostream& os) const noexcept
+std::ostream& ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::print(std::ostream& os) const noexcept
 {
 	// print layer by layer
 	auto left = m_head;
@@ -758,10 +816,4 @@ std::ostream& SkipTrie<CHAR_T, CHAR_SIZE_BITS>::print(std::ostream& os) const no
 	}
 
 	return os;
-}
-
-template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::string SkipTrie<CHAR_T, CHAR_SIZE_BITS>::to_string() const noexcept
-{
-	return "";
 }

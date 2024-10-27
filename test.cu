@@ -1,8 +1,10 @@
 #include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
+#include "src/ParallelSkipTrie.cuh"
 #include "src/synthetic.hpp"
 // #include "src/ZipZipTrie.hpp"
 #include "src/ZipTrie.hpp"
+#include "src/ParallelZipTrie.cuh"
 
 #include <chrono>
 #include <algorithm>
@@ -16,9 +18,9 @@ const std::vector<std::string> WORDS = {
 	"ANT", "APPLE", "APPLY", "APT", "APTLY", "AQUA", "PAL", "PEACE", "PEACH", "PEAK", "PENGUIN", "PALA", "AAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAVB"
 };
 
-BitString<char> from_string(const std::string& str)
+BitString<char, 64> from_string(const std::string& str)
 {
-	return BitString<char>(str);
+	return BitString<char, 64>(str);
 }
 
 // ZipZipTrie<char, false> create_test_zzt()
@@ -61,18 +63,20 @@ int main()
 {
 	// auto word = get_random_word(100);
 	// std::cout << word << std::endl;
-	std::vector<BitString<char>> bit_strings;
+	std::vector<BitString<char, 64>> bit_strings;
 	std::transform(WORDS.begin(), WORDS.end(), std::back_inserter(bit_strings), from_string);
 
 	unsigned longest_word_length = std::max_element(WORDS.begin(), WORDS.end(), [](const std::string& a, const std::string& b) { return a.size() < b.size(); })->size();
 
-	ZipTrie<char, true> trie(WORDS.size(), longest_word_length);
+	ParallelZipTrie<char, false, GeometricRank, 64> trie(WORDS.size(), longest_word_length);
+	// ParallelSkipTrie<char, 64> trie(longest_word_length);
 	// ZipZipTrie<char, unsigned> trie = create_test_zzt();
 
 	// if (!trie.contains(&bit_strings[4]))
 	// {
 	// 	std::cout << "Word " << bit_strings[4].to_string() << " not found in trie" << std::endl;
 	// }
+
 
 	trie.insert(&bit_strings[0]);
 	trie.insert(&bit_strings[1]);
@@ -102,7 +106,11 @@ int main()
 	trie.to_dot("test.dot");
 
 	// use system to run dot -Tpng test.dot -o test.png
-	system("dot -Tpng test.dot -o test.png");
+	int result = system("dot -Tpng test.dot -o test.png");
+	if (result != 0) {
+		std::cerr << "Error: Failed to generate PNG from DOT file. Return code: " << result << std::endl;
+		return 1;
+	}
 
 	// SkipTrie<char> trie;
 	// for (const auto& bit_string : bit_strings)
