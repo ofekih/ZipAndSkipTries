@@ -8,7 +8,7 @@ GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY
 SUPPRESS = 68 815 174
 DIAG_SUPPRESS = $(foreach diag,$(SUPPRESS),-diag-suppress=$(diag))
 
-CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 --expt-relaxed-constexpr $(DIAG_SUPPRESS)
+CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 -O3 --expt-relaxed-constexpr $(DIAG_SUPPRESS)
 
 # Dependency flags (generate dependency files during compilation)
 DEPFLAGS = -MMD -MP

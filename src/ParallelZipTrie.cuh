@@ -200,8 +200,7 @@ typename ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::Comp
 			continue;
 		}
 
-		comparison_size = std::max(1uL, comparison_size / 2);
-		// comparison_size = std::max(BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE, comparison_size / 2);
+		comparison_size = std::max(BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE, comparison_size / 2);
 		break;
 	}
 
@@ -226,7 +225,7 @@ typename ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::Sear
 	unsigned v_index = _root_index;
 	AncestorLCPs ancestor_lcps = {};
 	int depth = 0;
-	size_t comparison_size = 1;
+	size_t comparison_size = BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE;
 	bool already_copied = false;
 
 	while (v_index != NULLPTR)
@@ -258,7 +257,7 @@ typename ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::Sear
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
 void ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
 {
-	size_t comparison_size = 1;
+	size_t comparison_size = BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE;
 	bool already_copied = false;
 
 	_buckets.push_back({ key, RANK_T::get_random() });
