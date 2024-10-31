@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <compare> // for spaceship <=> operator
 #include <cstddef> // for size_t
 #include <cstdint> // for uintmax_t
@@ -105,10 +106,10 @@ public:
 		return seq_k_compare(other, lcp, size());
 	}
 
-	ResultLCP par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, bool& already_copied) const noexcept;
-	ResultLCP par_k_compare(const BitString& other, size_t lcp, uintmax_t* d_a, uintmax_t* d_largeblock, bool& already_copied) const noexcept
+	ResultLCP par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, size_t& max_copied) const noexcept;
+	ResultLCP par_k_compare(const BitString& other, size_t lcp, uintmax_t* d_a, uintmax_t* d_largeblock, size_t& max_copied) const noexcept
 	{
-		return par_k_compare(other, lcp, size(), d_a, d_largeblock, already_copied);
+		return par_k_compare(other, lcp, size(), d_a, d_largeblock, max_copied);
 	}
 
 	const uintmax_t* data() const noexcept { return m_data.data(); }
@@ -341,7 +342,7 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::seq_k_compare(const BitString& other, si
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, bool& already_copied) const noexcept -> ResultLCP
+auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, size_t& max_copied) const noexcept -> ResultLCP
 {
 
 	if (max_compare <= MIN_PAR_COMPARE_CHAR_SIZE)
@@ -362,10 +363,12 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, si
 		return seq_k_compare(other, lcp, max_compare);
 	}
 
-	if (!already_copied)
+	if (max_copied < word_index + actual_max_compare_words)
 	{
-		copy_to_device(d_a + word_index, data() + word_index, word_count() - word_index);
-		already_copied = true;
+		// get next power of 2 greater than or equal to word index + actual_max_compare_words
+		size_t end_copy = std::min(std::bit_ceil(word_index + actual_max_compare_words), word_count());
+		copy_to_device(d_a + max_copied, data() + max_copied, end_copy - max_copied);
+		max_copied = end_copy;
 	}
 
 	lcp -= lcp % ALPHA; // Reset to word boundary

@@ -95,7 +95,7 @@ private:
 	uintmax_t* d_a;
 	uintmax_t* d_largeblock;
 	mutable size_t m_comparison_size;
-	mutable bool m_already_copied;
+	mutable size_t m_max_copied;
 
 	/**
 	 * @struct Node
@@ -375,8 +375,8 @@ template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 size_t ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::get_random_height()
 {
 	static std::random_device rd;
-	// static std::mt19937 gen(rd());
-	static std::mt19937 gen(1);
+	static std::mt19937 gen(rd());
+	// static std::mt19937 gen(1);
 	static std::geometric_distribution<size_t> dist(0.5);
 	
 	return dist(gen);
@@ -426,7 +426,7 @@ auto ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::compare(const BitString<CHAR_T, C
 
 	while (true)
 	{
-		auto [comparison, next_lcp] = key1->par_k_compare(*key2, lcp, m_comparison_size, d_a, d_largeblock, m_already_copied);
+		auto [comparison, next_lcp] = key1->par_k_compare(*key2, lcp, m_comparison_size, d_a, d_largeblock, m_max_copied);
 		
 		result.result = comparison;
 		result.lcp = next_lcp;
@@ -534,7 +534,7 @@ bool ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CH
 	}
 
 	m_comparison_size = BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE;
-	m_already_copied = false;
+	m_max_copied = 0;
 
 	bool already_exists = insert_recursive(key, m_head.get(), height, Direction::FORWARD, 0, m_height - 1) == nullptr;
 
@@ -696,7 +696,7 @@ typename ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor ParallelSkip
 	size_t lcp = 0;
 
 	m_comparison_size = BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE;
-	m_already_copied = false;
+	m_max_copied = 0;
 
 	while (curr)
 	{

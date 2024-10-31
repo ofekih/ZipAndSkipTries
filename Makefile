@@ -18,7 +18,7 @@ SRC_DIRS = src ctriepp/ctriepp
 OBJ_DIR = obj
 BIN_DIR = bin
 DOC_DIR = docs
-DATA_DIR = data
+DATA_DIR = data-v3
 
 # Executables names without prefix/suffix (just the target name)
 EXEC_NAMES = test benchmark verify

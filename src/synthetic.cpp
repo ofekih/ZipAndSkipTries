@@ -10,8 +10,8 @@ static const std::string ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ
 std::string get_random_word(size_t length) noexcept
 {
 	static std::random_device rd;
-	static std::mt19937 gen(0);
-	// static std::mt19937 gen(rd());
+	// static std::mt19937 gen(0);
+	static std::mt19937 gen(rd());
 	
 	std::uniform_int_distribution<size_t> dis(0, ALPHABET.size() - 1);
 
@@ -25,8 +25,8 @@ std::vector<std::string> get_random_words(size_t length, size_t num_words, doubl
 {
 	// poisson distribution
 	static std::random_device rd;
-	static std::mt19937 gen(0);
-	// static std::mt19937 gen(rd());
+	// static std::mt19937 gen(0);
+	static std::mt19937 gen(rd());
 	
 	std::poisson_distribution<size_t> dis(mean_lcp_length);
 	

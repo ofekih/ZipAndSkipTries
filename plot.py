@@ -11,8 +11,12 @@ import numpy as np
 
 import csv
 
-DATA_DIRECTORY = Path('data-tmp')
-HOSTNAME = 'Yegion'
+DATA_DIRECTORY = Path('data-v4')
+#DATA_DIRECTORY = Path('data-v3')
+HOSTNAME = 'korn.ics.uci.edu'
+# HOSTNAME = 'Yegion'
+MAX_WORD_LENGTH = 2**26
+# MAX_WORD_LENGTH = 2**22
 CONSTRUCTION_FILENAME = 'construction-data'
 REMOVAL_FILENAME = 'removal-data'
 SEARCH_FILENAME = 'search-data'
@@ -24,6 +28,7 @@ OKABE_COLORS = ['#000000', '#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2'
 plt.rcParams['axes.prop_cycle'] = plt.cycler(color=OKABE_COLORS) # type: ignore
 plt.rcParams['text.usetex'] = True
 DPI = 300
+
 
 POINT_SIZE = 1
 
@@ -207,76 +212,78 @@ def add_data_point_to_plot(method_name: str, data_type: DataType, match: tuple[i
 		plt.loglog(x, y, base=2, marker = 'o', markersize = markersize, linestyle = 'None', label=label) # type: ignore
 
 def compare_construction_data(savefig: bool = False):
-	plt.figure(num = 0, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
+	# plt.figure(num = 0, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
 
-	add_data_point_to_plot('ctrie++', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='\\texttt{c-trie++}', skip_until=2**8)
-	# add_data_point_to_plot('skip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='ST', skip_until=2**8)
-	add_data_point_to_plot('memory-intensive-zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='MI-ZT', skip_until=2**8)
-	add_data_point_to_plot('zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='ZT', skip_until=2**8)
-	# add_data_point_to_plot('parallel-skip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='PST', skip_until=2**8)
-	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='MI-PZT', skip_until=2**8)
-	add_data_point_to_plot('parallel-zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='PZT', skip_until=2**8)
+	# add_data_point_to_plot('ctrie++', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='\\texttt{c-trie++}', skip_until=2**8)
+	# # add_data_point_to_plot('skip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='ST', skip_until=2**8)
+	# add_data_point_to_plot('memory-intensive-zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='MI-ZT', skip_until=2**8)
+	# add_data_point_to_plot('zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='ZT', skip_until=2**8)
+	# # add_data_point_to_plot('parallel-skip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='PST', skip_until=2**8)
+	# add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='MI-PZT', skip_until=2**8)
+	# add_data_point_to_plot('parallel-zip-trie', DataType.CONSTRUCTION, (-1, 2**10, 2**10), fitlabel='n', label='PZT', skip_until=2**8)
 
-	plot(figure_name='construction-time-num-keys-comparison', save=savefig, ylabel='Time (ns)', xlabel='Number of Keys ($n$)')
+	# plot(figure_name='construction-time-num-keys-comparison', save=savefig, ylabel='Time (ns)', xlabel='Number of Keys ($n$)')
 
 	plt.figure(num = 1, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
 
-	add_data_point_to_plot('ctrie++', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='\\texttt{c-trie++}', skip_until=2**14)
-	# add_data_point_to_plot('skip-trie', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='ST', skip_until=2**14)
-	add_data_point_to_plot('memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='MI-ZT', skip_until=2**14)
-	add_data_point_to_plot('zip-trie', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='ZT', skip_until=2**14)
-	# add_data_point_to_plot('parallel-skip-trie', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='PST', skip_until=2**14)
-	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='MI-PZT', skip_until=2**14)
-	add_data_point_to_plot('parallel-zip-trie', DataType.CONSTRUCTION, (2**10, 2**22, -1), fitlabel='\\ell', label='PZT', skip_until=2**14)
+	skip_until = 2**14
+
+	add_data_point_to_plot('ctrie++', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='\\texttt{c-trie++}', skip_until=skip_until, draw_best_fit=False)
+	# add_data_point_to_plot('skip-trie', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='ST', skip_until=2**14)
+	add_data_point_to_plot('memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='MI-ZT', skip_until=skip_until, draw_best_fit=False)
+	add_data_point_to_plot('zip-trie', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='ZT', skip_until=skip_until, draw_best_fit=False)
+	# add_data_point_to_plot('parallel-skip-trie', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='PST', skip_until=2**14)
+	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='MI-PZT', skip_until=skip_until, draw_best_fit=False)
+	add_data_point_to_plot('parallel-zip-trie', DataType.CONSTRUCTION, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='PZT', skip_until=skip_until, draw_best_fit=False)
 
 	plot(figure_name='construction-time-lcp-comparison', save=savefig, ylabel='Time (ns)', xlabel='Mean LCP Length ($\\ell$)')
 
-	plt.figure(num = 2, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
+	# plt.figure(num = 2, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
 
-	add_data_point_to_plot('ctrie++', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='\\texttt{c-trie++}', skip_until=2**11)
-	# add_data_point_to_plot('skip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='ST', skip_until=2**11)
-	add_data_point_to_plot('memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='MI-ZT', skip_until=2**11)
-	add_data_point_to_plot('zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='ZT', skip_until=2**11)
-	# add_data_point_to_plot('parallel-skip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='PST', skip_until=2**11)
-	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='MI-PZT', skip_until=2**11)
-	add_data_point_to_plot('parallel-zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='PZT', skip_until=2**11)
+	# add_data_point_to_plot('ctrie++', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='\\texttt{c-trie++}', skip_until=2**11)
+	# # add_data_point_to_plot('skip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='ST', skip_until=2**11)
+	# add_data_point_to_plot('memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='MI-ZT', skip_until=2**11)
+	# add_data_point_to_plot('zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='ZT', skip_until=2**11)
+	# # add_data_point_to_plot('parallel-skip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='PST', skip_until=2**11)
+	# add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='MI-PZT', skip_until=2**11)
+	# add_data_point_to_plot('parallel-zip-trie', DataType.CONSTRUCTION, (2**10, -1, 2**10), fitlabel='m', label='PZT', skip_until=2**11)
 
-	plot(figure_name='construction-time-key-length-comparison', save=savefig, ylabel='Time (ns)', xlabel='Key Length ($m$)')
+	# plot(figure_name='construction-time-key-length-comparison', save=savefig, ylabel='Time (ns)', xlabel='Key Length ($m$)')
 
 def compare_search_data(savefig: bool = False):
-	plt.figure(num = 100, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
+	# plt.figure(num = 100, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
 
-	add_data_point_to_plot('ctrie++', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='\\texttt{c-trie++}', skip_until=2**13)
-	# add_data_point_to_plot('skip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='ST', skip_until=2**13)
-	add_data_point_to_plot('memory-intensive-zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='MI-ZT', skip_until=2**13)
-	add_data_point_to_plot('zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='ZT', skip_until=2**13)
-	# add_data_point_to_plot('parallel-skip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='PST', skip_until=2**13)
-	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='MI-PZT', skip_until=2**13)
-	add_data_point_to_plot('parallel-zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='PZT', skip_until=2**13)
+	# add_data_point_to_plot('ctrie++', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='\\texttt{c-trie++}', skip_until=2**13)
+	# # add_data_point_to_plot('skip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='ST', skip_until=2**13)
+	# add_data_point_to_plot('memory-intensive-zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='MI-ZT', skip_until=2**13)
+	# add_data_point_to_plot('zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='ZT', skip_until=2**13)
+	# # add_data_point_to_plot('parallel-skip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='PST', skip_until=2**13)
+	# add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='MI-PZT', skip_until=2**13)
+	# add_data_point_to_plot('parallel-zip-trie', DataType.SEARCH, (-1, 2**10, 2**10), fitlabel='n', label='PZT', skip_until=2**13)
 
-	plot(figure_name='search-time-num-keys-comparison', save=savefig, ylabel='Time (ns)', xlabel='Number of Keys ($n$)')
+	# plot(figure_name='search-time-num-keys-comparison', save=savefig, ylabel='Time (ns)', xlabel='Number of Keys ($n$)')
 
-	plt.figure(num = 101, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
+	# plt.figure(num = 101, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
 
-	add_data_point_to_plot('ctrie++', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='\\texttt{c-trie++}', draw_best_fit=False)
-	# add_data_point_to_plot('skip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='ST', draw_best_fit=False)
-	add_data_point_to_plot('memory-intensive-zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='MI-ZT', draw_best_fit=False)
-	add_data_point_to_plot('zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='ZT', draw_best_fit=False)
-	# add_data_point_to_plot('parallel-skip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='PST', draw_best_fit=False)
-	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='MI-PZT', draw_best_fit=False)
-	add_data_point_to_plot('parallel-zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='PZT', draw_best_fit=False)
+	# add_data_point_to_plot('ctrie++', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='\\texttt{c-trie++}', draw_best_fit=False)
+	# # add_data_point_to_plot('skip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='ST', draw_best_fit=False)
+	# add_data_point_to_plot('memory-intensive-zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='MI-ZT', draw_best_fit=False)
+	# add_data_point_to_plot('zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='ZT', draw_best_fit=False)
+	# # add_data_point_to_plot('parallel-skip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='PST', draw_best_fit=False)
+	# add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='MI-PZT', draw_best_fit=False)
+	# add_data_point_to_plot('parallel-zip-trie', DataType.SEARCH, (2**10, -1, 2**10), fitlabel='m', label='PZT', draw_best_fit=False)
 
-	plot(figure_name='search-time-key-length-comparison', save=savefig, ylabel='Time (ns)', xlabel='Key Length ($m$)')
+	# plot(figure_name='search-time-key-length-comparison', save=savefig, ylabel='Time (ns)', xlabel='Key Length ($m$)')
 
 	plt.figure(num = 102, figsize = (8, 5), dpi = DPI, facecolor = 'w', edgecolor = 'k') # type: ignore
 
-	add_data_point_to_plot('ctrie++', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='\\texttt{c-trie++}', skip_until=2**14)
-	# add_data_point_to_plot('skip-trie', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='ST', skip_until=2**14)
-	add_data_point_to_plot('memory-intensive-zip-trie', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='MI-ZT', skip_until=2**14)
-	add_data_point_to_plot('zip-trie', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='ZT', skip_until=2**14)
-	# add_data_point_to_plot('parallel-skip-trie', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='PST', skip_until=2**14)
-	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='MI-PZT', skip_until=2**14)
-	add_data_point_to_plot('parallel-zip-trie', DataType.SEARCH, (2**10, 2**22, -1), fitlabel='\\ell', label='PZT', skip_until=2**14)
+	add_data_point_to_plot('ctrie++', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='\\texttt{c-trie++}', skip_until=2**14)
+	# add_data_point_to_plot('skip-trie', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='ST', skip_until=2**14)
+	add_data_point_to_plot('memory-intensive-zip-trie', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='MI-ZT', skip_until=2**14)
+	add_data_point_to_plot('zip-trie', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='ZT', skip_until=2**14)
+	# add_data_point_to_plot('parallel-skip-trie', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='PST', skip_until=2**14)
+	add_data_point_to_plot('parallel-memory-intensive-zip-trie', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='MI-PZT', skip_until=2**14)
+	add_data_point_to_plot('parallel-zip-trie', DataType.SEARCH, (2**10, MAX_WORD_LENGTH, -1), fitlabel='\\ell', label='PZT', skip_until=2**14)
 
 	plot(figure_name='search-time-lcp-comparison', save=savefig, ylabel='Time (ns)', xlabel='Mean LCP Length ($\\ell$)')
 
@@ -284,5 +291,5 @@ if __name__ == '__main__':
 	savefig = False
 	# savefig = True
 
-	# compare_construction_data(savefig)
+	compare_construction_data(savefig)
 	compare_search_data(savefig)
