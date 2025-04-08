@@ -4,7 +4,7 @@
 #include <ctime>
 #include <string>
 
-static const std::string DATA_DIRECTORY = "data-v5/";
+static const std::string DATA_DIRECTORY = "data-genetic/";
 static const std::string SEARCH_DATA_FILENAME = "search-data-";
 static const std::string CONSTRUCTION_DATA_FILENAME = "construction-data-";
 static const std::string REMOVAL_DATA_FILENAME = "removal-data-";

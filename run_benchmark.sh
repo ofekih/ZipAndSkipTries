@@ -63,9 +63,9 @@ for i in {1..1000}
 do
 	echo "Iteration $i"
 
+	run_variable_lcp_benchmarks $DEFAULT_VALUE $MAX_WORD_LENGTH $NUM_REPETITIONS
 	run_variable_word_length_benchmarks $DEFAULT_VALUE $MAX_WORD_LENGTH $DEFAULT_VALUE $NUM_REPETITIONS
 	run_variable_num_words_benchmarks $MAX_NUM_WORDS $DEFAULT_VALUE $DEFAULT_VALUE $NUM_REPETITIONS
-	run_variable_lcp_benchmarks $DEFAULT_VALUE $MAX_WORD_LENGTH $NUM_REPETITIONS
 
 	echo "Sleeping for 60 seconds"
 	sleep 60

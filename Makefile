@@ -21,7 +21,7 @@ DOC_DIR = docs
 DATA_DIR = data-v3
 
 # Executables names without prefix/suffix (just the target name)
-EXEC_NAMES = test benchmark verify
+EXEC_NAMES = test synthetic_benchmark genetic_benchmark verify
 
 .PHONY: all directories clean $(EXEC_NAMES) docs
 
