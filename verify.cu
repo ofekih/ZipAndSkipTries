@@ -74,7 +74,7 @@ int main()
 
 	// Verify ParallelSkipTrie
 	{
-		printf("\nVerifying ParallelSkipTre\n");
+		printf("\nVerifying ParallelSkipTrie\n");
 
 		ParallelSkipTrie<char> trie(word_length);
 
@@ -95,6 +95,104 @@ int main()
 			}
 		}
 	}
+
+	// Verify ZipTrie
+	{
+		printf("\nVerifying ZipTrie\n");
+
+		ZipTrie<char, false> trie(num_words, word_length);
+
+		printf("\tInserting words\n");
+
+		for (const auto& word : bs)
+		{
+			trie.insert(&word);
+		}
+
+		printf("\tVerifying words\n");
+
+		for (const auto& word : bs)
+		{
+			if (!trie.contains(&word)) {
+				printf("Verification failed for word: %s\n", word.to_string().c_str());
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	// Verify ParallelZipTrie
+	{
+		printf("\nVerifying ParallelZipTrie\n");
+
+		ParallelZipTrie<char, false> trie(num_words, word_length);
+
+		printf("\tInserting words\n");
+
+		for (const auto& word : bs)
+		{
+			trie.insert(&word);
+		}
+
+		printf("\tVerifying words\n");
+
+		for (const auto& word : bs)
+		{
+			if (!trie.contains(&word)) {
+				printf("Verification failed for word: %s\n", word.to_string().c_str());
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	// Verify Memory-Efficient ZipTrie
+	{
+		printf("\nVerifying Memory-Efficient ZipTrie\n");
+
+		ZipTrie<char, true> trie(num_words, word_length);
+
+		printf("\tInserting words\n");
+
+		for (const auto& word : bs)
+		{
+			trie.insert(&word);
+		}
+
+		printf("\tVerifying words\n");
+
+		for (const auto& word : bs)
+		{
+			if (!trie.contains(&word)) {
+				printf("Verification failed for word: %s\n", word.to_string().c_str());
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	// Verify Memory-Efficient ParallelZipTrie
+	{
+		printf("\nVerifying Memory-Efficient ParallelZipTrie\n");
+
+		ParallelZipTrie<char, true> trie(num_words, word_length);
+
+		printf("\tInserting words\n");
+
+		for (const auto& word : bs)
+		{
+			trie.insert(&word);
+		}
+
+		printf("\tVerifying words\n");
+
+		for (const auto& word : bs)
+		{
+			if (!trie.contains(&word)) {
+				printf("Verification failed for word: %s\n", word.to_string().c_str());
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+
+	printf("\nAll tests passed!\n");
 
 	return 0;
 }
