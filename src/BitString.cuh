@@ -66,6 +66,7 @@ public:
 
 	/**
 	 * @brief Constructs a BitString object from a raw character array.
+	 * @details Packs the input characters into the internal `uintmax_t` vector.
 	 * @param data Pointer to the beginning of the character array. Must not be null if size > 0.
 	 * @param size The number of characters in the array.
 	 */
@@ -73,6 +74,7 @@ public:
 
 	/**
 	 * @brief Constructs a BitString object from a container of characters.
+	 * @details Packs characters from the container into the internal vector.
 	 *
 	 * The container must support `size()` and random access via `operator[]`.
 	 * Examples include `std::vector<CHAR_T>`, `std::basic_string<CHAR_T>`, `std::array<CHAR_T, N>`.
@@ -102,6 +104,7 @@ public:
 
 	/**
 	 * @brief Appends a single character to the end of the BitString.
+	 * @details Adds the character to the last word, potentially allocating a new word if needed.
 	 * @param c The character to append.
 	 * @note This operation may reallocate the underlying storage if capacity is exceeded.
 	 */
@@ -109,6 +112,7 @@ public:
 
 	/**
 	 * @brief Accesses the character at a specific index.
+	 * @details Calculates the word and sub-index, then uses GET_CHAR for extraction. Behavior undefined if index is out of bounds.
 	 *
 	 * Behavior is undefined for out-of-bounds access.
 	 *
@@ -151,6 +155,7 @@ public:
 
 	/**
 	 * @brief Performs sequential comparison with another BitString, starting from a given LCP offset, up to a maximum length.
+	 * @details Iterates word by word, finds the first mismatch using XOR and countl_zero.
 	 *
 	 * Compares this BitString with `other`, assuming the first `lcp` characters are already known to be equal.
 	 * The comparison proceeds character by character (packed within words) sequentially, but stops strictly
@@ -186,6 +191,7 @@ public:
 
 	/**
 	 * @brief Performs parallel comparison (potentially using CUDA) with another BitString, starting from a given LCP offset, up to a maximum length.
+	 * @details Checks size, copies data to GPU if necessary, calls parallel mismatch kernel, then refines LCP. Falls back to sequential if too small.
 	 *
 	 * Compares this BitString with `other`, assuming the first `lcp` characters are equal.
 	 * If the number of words to compare exceeds `MIN_PAR_COMPARE_WORD_SIZE`, this function attempts
@@ -247,6 +253,9 @@ private:
 
 	/**
 	 * @brief Generates the bit shift amounts needed for character extraction/insertion at compile time.
+	 * @details Calculates the left shift amount needed for each character position within a word.
+	 * @tparam CHAR_T Character type.
+	 * @tparam CHAR_SIZE_BITS Bits per character.
 	 * @return std::array<unsigned, ALPHA> An array where each element `i` contains the left-shift amount
 	 * required to position the character at sub-word index `i` correctly within a `uintmax_t`.
 	 */
@@ -256,6 +265,9 @@ private:
 
 	/**
 	 * @brief Generates the bit masks needed for character extraction at compile time.
+	 * @details Creates a mask for each character position within a word.
+	 * @tparam CHAR_T Character type.
+	 * @tparam CHAR_SIZE_BITS Bits per character.
 	 * @return std::array<uintmax_t, ALPHA> An array where each element `i` is a mask that isolates
 	 * the bits corresponding to the character at sub-word index `i`.
 	 */
@@ -265,6 +277,9 @@ private:
 
 	/**
 	 * @brief Extracts a single character from a given word at a specific bit index (sub-word position).
+	 * @details Applies the appropriate mask and shift to isolate and retrieve the character.
+	 * @tparam CHAR_T Character type.
+	 * @tparam CHAR_SIZE_BITS Bits per character.
 	 * @param word The `uintmax_t` word containing the packed characters.
 	 * @param bit_index The index within the word (0 to ALPHA-1) corresponding to the desired character.
 	 * @return CHAR_T The extracted character.
@@ -278,6 +293,7 @@ public:
 
 	/**
 	 * @brief Prints the raw byte representation of the BitString to an output stream.
+	 * @details Iterates through words and extracts bytes based on `WORD_SIZE_BITS`. Handles the last partial word correctly.
 	 *
 	 * Writes the packed `uintmax_t` data to the stream byte by byte, respecting the actual
 	 * number of characters (`size()`). Handles partial final words correctly.
@@ -288,6 +304,7 @@ public:
 
 	/**
 	 * @brief Writes the BitString contents to a file in binary format.
+	 * @details Opens the file, calls the stream version of `to_file`, and closes the file.
 	 *
 	 * Serializes the size and the packed data array to the specified file.
 	 *
@@ -298,6 +315,7 @@ public:
 
 	/**
 	 * @brief Writes the BitString contents to an already open output file stream.
+	 * @details Writes the size, then the raw `uintmax_t` data. Does not perform error checking on writes.
 	 *
 	 * Serializes the size and the packed data array to the stream.
 	 *
@@ -307,6 +325,7 @@ public:
 
 	/**
 	 * @brief Reads a BitString from a file in binary format.
+	 * @details Opens the file, calls the stream version of `from_file`, and closes the file.
 	 *
 	 * Deserializes the size and packed data from the specified file.
 	 *
@@ -318,6 +337,7 @@ public:
 
 	/**
 	 * @brief Reads a BitString from an already open input file stream.
+	 * @details Reads the size, calculates words needed, resizes, then reads raw data. Does not perform error checking on reads.
 	 *
 	 * Deserializes the size and packed data from the stream.
 	 *
@@ -328,6 +348,7 @@ public:
 
 	/**
 	 * @brief Converts the BitString back to a standard `std::string`.
+	 * @details Iterates through characters using iterators and appends them to a string. Assumes `CHAR_T` is convertible to `char`.
 	 * @return std::string A string containing the characters stored in the BitString.
 	 * @note This assumes `CHAR_T` is convertible to `char`.
 	 */
@@ -430,13 +451,6 @@ public:
 
 // == Implementation of Template Methods ==
 
-/**
- * @brief Generates bit shifts for character positioning at compile time.
- * @details Calculates the left shift amount needed for each character position within a word.
- * @tparam CHAR_T Character type.
- * @tparam CHAR_SIZE_BITS Bits per character.
- * @return std::array<unsigned, ALPHA> Array of shift values.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 constexpr std::array<unsigned, BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA> BitString<CHAR_T, CHAR_SIZE_BITS>::GET_SHIFTS()
 {
@@ -448,14 +462,6 @@ constexpr std::array<unsigned, BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA> BitStri
 	return shifts;
 }
 
-
-/**
- * @brief Generates bit masks for character extraction at compile time.
- * @details Creates a mask for each character position within a word.
- * @tparam CHAR_T Character type.
- * @tparam CHAR_SIZE_BITS Bits per character.
- * @return std::array<uintmax_t, ALPHA> Array of mask values.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 constexpr std::array<uintmax_t, BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA> BitString<CHAR_T, CHAR_SIZE_BITS>::GET_MASKS()
 {
@@ -473,15 +479,6 @@ constexpr std::array<uintmax_t, BitString<CHAR_T, CHAR_SIZE_BITS>::ALPHA> BitStr
 	return masks;
 }
 
-/**
- * @brief Extracts a character from a word at a specific sub-index.
- * @details Applies the appropriate mask and shift to isolate and retrieve the character.
- * @tparam CHAR_T Character type.
- * @tparam CHAR_SIZE_BITS Bits per character.
- * @param word The word containing the packed data.
- * @param bit_index The sub-index (0 to ALPHA-1) of the character within the word.
- * @return CHAR_T The extracted character.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 constexpr CHAR_T BitString<CHAR_T, CHAR_SIZE_BITS>::GET_CHAR(uintmax_t word, unsigned bit_index)
 {
@@ -490,10 +487,6 @@ constexpr CHAR_T BitString<CHAR_T, CHAR_SIZE_BITS>::GET_CHAR(uintmax_t word, uns
 	return static_cast<CHAR_T>(shifted_word);
 }
 
-/**
- * @brief Constructs BitString from a raw character pointer and size.
- * @details Packs the input characters into the internal `uintmax_t` vector.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 BitString<CHAR_T, CHAR_SIZE_BITS>::BitString(const CHAR_T* data, size_t data_size)
 	: m_size(data_size)
@@ -510,10 +503,6 @@ BitString<CHAR_T, CHAR_SIZE_BITS>::BitString(const CHAR_T* data, size_t data_siz
 	}
 }
 
-/**
- * @brief Constructs BitString from a generic container.
- * @details Packs characters from the container into the internal vector.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 template<typename Container>
 BitString<CHAR_T, CHAR_SIZE_BITS>::BitString(const Container& data)
@@ -531,10 +520,6 @@ BitString<CHAR_T, CHAR_SIZE_BITS>::BitString(const Container& data)
 	}
 }
 
-/**
- * @brief Appends a character to the BitString.
- * @details Adds the character to the last word, potentially allocating a new word if needed.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 void BitString<CHAR_T, CHAR_SIZE_BITS>::push_back(CHAR_T c) noexcept
 {
@@ -551,20 +536,12 @@ void BitString<CHAR_T, CHAR_SIZE_BITS>::push_back(CHAR_T c) noexcept
 	++m_size;
 }
 
-/**
- * @brief Accesses a character by index.
- * @details Calculates the word and sub-index, then uses GET_CHAR for extraction. Behavior undefined if index is out of bounds.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 CHAR_T BitString<CHAR_T, CHAR_SIZE_BITS>::operator[](size_t index) const
 {
 	return GET_CHAR(m_data[index / ALPHA], index % ALPHA);
 }
 
-/**
- * @brief Compares two BitStrings sequentially starting from LCP.
- * @details Iterates word by word, finds the first mismatch using XOR and countl_zero.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 auto BitString<CHAR_T, CHAR_SIZE_BITS>::seq_k_compare(const BitString& other, size_t lcp, size_t max_compare) const noexcept -> ResultLCP
 {
@@ -606,14 +583,12 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::seq_k_compare(const BitString& other, si
 	return { std::strong_ordering::equal, lcp };
 }
 
-
-/**
- * @brief Compares two BitStrings using parallel (CUDA) approach if beneficial.
- * @details Checks size, copies data to GPU if necessary, calls parallel mismatch kernel, then refines LCP. Falls back to sequential if too small.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, size_t& max_copied) const noexcept -> ResultLCP
 {
+	const size_t max_compare_until = lcp + max_compare; // Max character index to compare
+
+	// Fallback for small comparisons
 	if (max_compare <= MIN_PAR_COMPARE_CHAR_SIZE)
 	{
 		return seq_k_compare(other, lcp, max_compare);
@@ -623,31 +598,49 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, si
 	const size_t min_word_count = std::min(word_count(), other.word_count());
 	size_t word_index = lcp / ALPHA;
 
-	const size_t num_remaining_words = min_word_count - word_index;
-	const size_t max_compare_words = (max_compare + ALPHA - 1) / ALPHA;
+	// Calculate how many full words remain to potentially compare
+	const size_t num_remaining_words = (min_word_count > word_index) ? (min_word_count - word_index) : 0;
+
+	// Calculate max words to compare based on max_compare characters
+	// Need to compare up to the word containing character (lcp + max_compare - 1)
+	const size_t end_char_index = lcp + max_compare;
+	const size_t end_word_index = (end_char_index + ALPHA - 1) / ALPHA; // Word index containing the last char to check
+	const size_t max_compare_words = (end_word_index > word_index) ? (end_word_index - word_index) : 0;
+
+
 	const size_t actual_max_compare_words = std::min(max_compare_words, num_remaining_words);
 
+	// Fallback if the actual number of words to compare is too small
 	if (actual_max_compare_words <= MIN_PAR_COMPARE_WORD_SIZE)
 	{
 		return seq_k_compare(other, lcp, max_compare);
 	}
 
+	// Ensure data is on the device
 	if (max_copied < word_index + actual_max_compare_words)
 	{
-		// get next power of 2 greater than or equal to word index + actual_max_compare_words
-		size_t end_copy = std::min(std::bit_ceil(word_index + actual_max_compare_words), word_count());
-		copy_to_device(d_a + max_copied, data() + max_copied, end_copy - max_copied);
-		max_copied = end_copy;
+		size_t end_copy_index = word_index + actual_max_compare_words;
+		
+		// get next power of 2 greater than or equal to end_copy_index
+		size_t end_copy = std::min(std::bit_ceil(end_copy_index), word_count());
+		if (end_copy > max_copied) {
+			copy_to_device(d_a + max_copied, data() + max_copied, end_copy - max_copied);
+			max_copied = end_copy;
+		}
 	}
 
-	lcp -= lcp % ALPHA; // Reset to word boundary
+	lcp -= lcp % ALPHA; // Reset LCP to the start of the current word boundary for parallel comparison
 
+	// Perform parallel mismatch search
 	auto msw = par_find_mismatch_s(d_a + word_index, other.data() + word_index, d_largeblock, actual_max_compare_words);
 
+	// Calculate LCP based on mismatch word index (msw)
 	lcp += msw * ALPHA;
 
-	if (msw == actual_max_compare_words) // no msw found, it was equal
+	// If no mismatch found within the compared words
+	if (msw == actual_max_compare_words)
 	{
+		// Check if the comparison reached the end of either string
 		if (lcp >= min_size)
 		{
 			return { size() <=> other.size(), min_size };
@@ -656,11 +649,11 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, si
 		return { std::strong_ordering::equal, lcp };
 	}
 
-	word_index = lcp / ALPHA;
+	// Mismatch found by parallel kernel. Refine LCP within the mismatch word.
+	word_index = lcp / ALPHA; // Update word_index to the mismatch word
 
 	// Find exact mismatch character within the word
 	const uintmax_t XOR = m_data[word_index] ^ other.m_data[word_index];
-
 	const size_t l_zero = std::countl_zero(XOR);
 
 	lcp += l_zero / CHAR_SIZE_BITS;
@@ -674,11 +667,6 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, si
 	return { lhs <=> rhs, lcp };
 }
 
-
-/**
- * @brief Prints the raw byte representation of the BitString to an output stream.
- * @details Iterates through words and extracts bytes based on `WORD_SIZE_BITS`. Handles the last partial word correctly.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 void BitString<CHAR_T, CHAR_SIZE_BITS>::print_bytes(std::ostream& os) const
 {
@@ -710,6 +698,7 @@ void BitString<CHAR_T, CHAR_SIZE_BITS>::print_bytes(std::ostream& os) const
 	}
 }
 
+
 /**
  * @brief Overloaded stream insertion operator for printing BitString content.
  * @details Iterates through the BitString using its iterators and prints each character.
@@ -729,10 +718,6 @@ std::ostream& operator<<(std::ostream& os, const BitString<CHAR_T, CHAR_SIZE_BIT
 	return os;
 }
 
-/**
- * @brief Writes BitString data to an open binary file stream.
- * @details Writes the size, then the raw `uintmax_t` data. Does not perform error checking on writes.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 void BitString<CHAR_T, CHAR_SIZE_BITS>::to_file(std::ofstream& file) const
 {
@@ -740,61 +725,54 @@ void BitString<CHAR_T, CHAR_SIZE_BITS>::to_file(std::ofstream& file) const
 	file.write(reinterpret_cast<const char*>(m_data.data()), m_data.size() * sizeof(uintmax_t));
 }
 
-/**
- * @brief Writes BitString data to a binary file by filename.
- * @details Opens the file, calls the stream version of `to_file`, and closes the file.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 void BitString<CHAR_T, CHAR_SIZE_BITS>::to_file(const std::string& filename) const
 {
 	std::ofstream file(filename, std::ios::binary);
 	if (!file)
 	{
-		throw std::runtime_error("Failed to open file for writing.");
+		throw std::runtime_error("Failed to open file for writing: " + filename);
 	}
 	to_file(file);
 	// file automatically closed by destructor
 }
 
-/**
- * @brief Reads BitString data from an open binary file stream.
- * @details Reads the size, calculates words needed, resizes, then reads raw data. Does not perform error checking on reads.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 BitString<CHAR_T, CHAR_SIZE_BITS> BitString<CHAR_T, CHAR_SIZE_BITS>::from_file(std::ifstream& file)
 {
 	BitString<CHAR_T, CHAR_SIZE_BITS> bs;
 
 	file.read(reinterpret_cast<char*>(&bs.m_size), sizeof(size_t));
+	if (!file) { // Check read success
+		throw std::runtime_error("Failed to read size from file stream.");
+	}
 
 	const size_t word_count = (bs.size() + ALPHA - 1) / ALPHA;
-	bs.m_data.resize(word_count, 0);
-	file.read(reinterpret_cast<char*>(bs.m_data.data()), bs.m_data.size() * sizeof(uintmax_t));
+	bs.m_data.resize(word_count, 0); // Resize before reading into it
+
+	if (word_count > 0) { // Only read if there's data expected
+		file.read(reinterpret_cast<char*>(bs.m_data.data()), word_count * sizeof(uintmax_t));
+		if (!file) { // Check read success
+			throw std::runtime_error("Failed to read data from file stream.");
+		}
+	}
+
 
 	return bs;
 }
 
-/**
- * @brief Reads BitString data from a binary file by filename.
- * @details Opens the file, calls the stream version of `from_file`, and closes the file.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 BitString<CHAR_T, CHAR_SIZE_BITS> BitString<CHAR_T, CHAR_SIZE_BITS>::from_file(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::binary);
 	if (!file)
 	{
-		throw std::runtime_error("Failed to open file for reading.");
+		throw std::runtime_error("Failed to open file for reading: " + filename);
 	}
 	return from_file(file);
 	// file automatically closed by destructor
 }
 
-/**
- * @brief Converts the BitString to a `std::string`.
- * @details Iterates through characters using iterators and appends them to a string. Assumes `CHAR_T` is convertible to `char`.
- * @return std::string A string containing the characters stored in the BitString.
- */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 std::string BitString<CHAR_T, CHAR_SIZE_BITS>::to_string() const noexcept
 {
