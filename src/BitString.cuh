@@ -402,16 +402,6 @@ public:
 			return m_index == other.m_index;
 		}
 
-		/**
-		 * @brief Compares this iterator with another for inequality.
-		 * @param other The iterator to compare against.
-		 * @return bool True if the iterators point to different indices.
-		 */
-		bool operator!=(const Iterator& other) const noexcept
-		{
-			return !(*this == other);
-		}
-
 	private:
 		/** @brief Reference to the BitString being iterated over. */
 		const BitString& m_bs;
