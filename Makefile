@@ -3,7 +3,7 @@ CC = nvcc
 
 # Compiler flags
 COMPUTE_CAPABILITY=61
-GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=compute_$(COMPUTE_CAPABILITY)
+GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY)
 
 SUPPRESS = 68 815 174
 DIAG_SUPPRESS = $(foreach diag,$(SUPPRESS),-diag-suppress=$(diag))

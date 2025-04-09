@@ -209,7 +209,7 @@ def compare_construction_data(savefig: bool):
 	plt.figure(num = 0, figsize = (8, 5), dpi = get_dpi(savefig), facecolor = 'w', edgecolor = 'k') # type: ignore
 
 	skip_until = 2 ** 8
-	cutoff = 0
+	cutoff = 1
 
 	add_data_point_to_plot('c-trie++', DataType.CONSTRUCTION, 0, fitlabel='n', skip_until=skip_until,markersize=1, label='\\texttt{c-trie++}')
 	add_data_point_to_plot('ZT', DataType.CONSTRUCTION, 0, fitlabel='n', skip_until=skip_until,markersize=1)
@@ -270,7 +270,7 @@ def compare_construction_data(savefig: bool):
 def compare_search_data(savefig: bool):
 	plt.figure(num=300, figsize=(8, 5), dpi = get_dpi(savefig), facecolor='w', edgecolor='k') # type: ignore
 
-	cutoff = 0
+	cutoff = 1
 
 	add_data_point_to_plot('c-trie++', DataType.SEARCH, 0, draw_best_fit=False, markersize=4, label='\\texttt{c-trie++}')
 	add_data_point_to_plot('ZT', DataType.SEARCH, 0, draw_best_fit=False, markersize=4)

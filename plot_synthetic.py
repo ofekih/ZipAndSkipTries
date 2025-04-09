@@ -19,7 +19,7 @@ MAX_WORD_LENGTH = 2**22
 CONSTRUCTION_FILENAME = 'construction-data'
 REMOVAL_FILENAME = 'removal-data'
 SEARCH_FILENAME = 'search-data'
-START_PARALLEL = 4
+START_PARALLEL = 1
 
 FIGURE_DIRECTORY = Path('figures')
 FIGURE_DIRECTORY.mkdir(parents=True, exist_ok=True)

@@ -33,10 +33,11 @@
  * @brief Minimum number of words required to trigger parallel comparison.
  * @note If the number of words to compare is less than or equal to this value,
  * sequential comparison (`seq_k_compare`) will be used instead of
- * parallel comparison (`par_k_compare`). Set to 0 to always prefer parallel
+ * parallel comparison (`par_k_compare`). Set to 1 to always prefer parallel
  * comparison when applicable.
+ * @warning Should not be set to 0.
  */
-static constexpr size_t MIN_PAR_COMPARE_WORD_SIZE = 0;
+static constexpr size_t MIN_PAR_COMPARE_WORD_SIZE = 1;
 
 /**
  * @brief A class to store strings compactly into integers, packing multiple characters into a single word.

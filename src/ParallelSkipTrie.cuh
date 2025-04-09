@@ -427,7 +427,7 @@ auto ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::compare(const BitString<CHAR_T, C
 	while (true)
 	{
 		auto [comparison, next_lcp] = key1->par_k_compare(*key2, lcp, m_comparison_size, d_a, d_largeblock, m_max_copied);
-		
+
 		result.result = comparison;
 		result.lcp = next_lcp;
 
@@ -447,7 +447,6 @@ auto ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::compare(const BitString<CHAR_T, C
 		}
 	}
 
-	// m_comparison_size = std::max(1ul, m_comparison_size / 2);
 	m_comparison_size = std::max(BitString<CHAR_T, CHAR_SIZE_BITS>::MIN_PAR_COMPARE_CHAR_SIZE, m_comparison_size / 2);
 
 	return result;
