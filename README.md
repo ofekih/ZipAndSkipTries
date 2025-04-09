@@ -2,4 +2,4 @@
 
 ## Documentation
 
-You can find the full generated documentation [here](https://ofekih.github.io/SkipAndZipTries/).
+You can find the full generated documentation [here](https://ofekih.github.io/ZipAndSkipTries/).
