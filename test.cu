@@ -68,8 +68,8 @@ int main()
 
 	unsigned longest_word_length = std::max_element(WORDS.begin(), WORDS.end(), [](const std::string& a, const std::string& b) { return a.size() < b.size(); })->size();
 
-	ZipTrie<char, true, GeometricRank, 64> trie(WORDS.size(), longest_word_length);
-	// ParallelZipTrie<char, false, GeometricRank, 64> trie(WORDS.size(), longest_word_length);
+	// ZipTrie<char, true, GeometricRank, 64> trie(WORDS.size(), longest_word_length);
+	ParallelZipTrie<char, false, GeometricRank, 64> trie(WORDS.size(), longest_word_length);
 	// ParallelSkipTrie<char, 64> trie(longest_word_length);
 	// ZipZipTrie<char, unsigned> trie = create_test_zzt();
 

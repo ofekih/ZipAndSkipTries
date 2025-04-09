@@ -12,6 +12,7 @@
 #include <cmath>     // For std::log2
 #include <random>    // For random rank generation
 #include <fstream>   // For file output (to_dot)
+#include <optional>  // For std::optional
 #include <string>    // For std::string
 #include <type_traits> // For std::conditional_t
 #include <ostream>   // For std::ostream
@@ -226,7 +227,7 @@ public:
 	 * @param key Pointer to the key to search for.
 	 * @return SearchResults A struct containing the search outcome (found status, LCP, depth).
 	 */
-	SearchResults search(const KEY_T* key) const noexcept;
+	virtual SearchResults search(const KEY_T* key) const noexcept;
 
 	/**
 	 * @brief Generates a DOT representation of the trie for visualization.
@@ -279,7 +280,34 @@ protected:
 	/** @brief Vector storing all the nodes (buckets) of the trie. */
 	std::vector<Bucket> _buckets;
 
-private:
+	/**
+	 * @brief Converts a standard LCP length (`size_t`) into the memory-efficient format.
+	 * @param num The LCP length to convert.
+	 * @return MemoryEfficientLCP The LCP value in the memory-efficient representation.
+	 * @note This function is only relevant when `MEMORY_EFFICIENT` is true.
+	 */
+	inline MemoryEfficientLCP get_memory_efficient_lcp(size_t num) const noexcept;
+
+	template <typename CompareFunction>
+	SearchResults search_recursive(const KEY_T* key, CompareFunction compare_func) const noexcept;
+
+	/**
+	 * @brief Recursive helper function for inserting a new node `x`.
+	 *
+	 * Traverses the trie based on key comparisons and LCPs. When the correct position
+	 * is found, it inserts the node `x`. During backtracking, it performs rotations (zips)
+	 * if the rank of `x` is higher than the current node `v`, maintaining the zip property.
+	 *
+	 * @param x Pointer to the new bucket being inserted.
+	 * @param x_index Index of the new bucket `x` in the `_buckets` vector.
+	 * @param v_index Index of the current node being visited in the recursion.
+	 * @param ancestor_lcps LCPs inherited from the path above `v_index`.
+	 * @return unsigned The index of the root of the modified subtree (could be `x_index` or `v_index`).
+	 */
+	template<typename CompareFunction>
+	unsigned insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps, CompareFunction compare_func) noexcept;
+
+protected:
 	/**
 	 * @struct ComparisonResult
 	 * @brief Holds the result of comparing a search key `x` with a node `v`.
@@ -292,6 +320,14 @@ private:
 		LCP_T lcp;
 	};
 
+	std::optional<ComparisonResult> k_compare_prefix_check(
+		const Bucket& v,
+		const AncestorLCPs& ancestor_lcps,
+		size_t& out_start_lcp_val) const noexcept;
+	
+	inline LCP_T convert_lcp(size_t val) const noexcept;
+
+private:
 	/**
 	 * @brief Compares a key `x_key` with the key in a node `v`, considering ancestor LCPs.
 	 *
@@ -304,7 +340,7 @@ private:
 	 * @param ancestor_lcps LCPs computed along the path from the root to `v`'s parent.
 	 * @return ComparisonResult The result of the comparison (ordering and LCP).
 	 */
-	inline ComparisonResult k_compare(const KEY_T* x_key, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept;
+	inline ComparisonResult k_compare(const KEY_T* x, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept;
 
 	/**
 	 * @brief Recursive helper function to calculate the height of a subtree.
@@ -321,36 +357,12 @@ private:
 	 */
 	uint64_t get_total_depth(unsigned node_index, uint64_t depth) const noexcept;
 
-
-	/**
-	 * @brief Recursive helper function for inserting a new node `x`.
-	 *
-	 * Traverses the trie based on key comparisons and LCPs. When the correct position
-	 * is found, it inserts the node `x`. During backtracking, it performs rotations (zips)
-	 * if the rank of `x` is higher than the current node `v`, maintaining the zip property.
-	 *
-	 * @param x Pointer to the new bucket being inserted.
-	 * @param x_index Index of the new bucket `x` in the `_buckets` vector.
-	 * @param v_index Index of the current node being visited in the recursion.
-	 * @param ancestor_lcps LCPs inherited from the path above `v_index`.
-	 * @return unsigned The index of the root of the modified subtree (could be `x_index` or `v_index`).
-	 */
-	unsigned insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps = {}) noexcept;
-
 	/**
 	 * @brief Recursive helper function to generate DOT output for a subtree.
 	 * @param os The output file stream.
 	 * @param node_index Index of the root of the subtree to output.
 	 */
 	void to_dot_recursive(std::ofstream& os, unsigned node_index) const noexcept;
-
-	/**
-	 * @brief Converts a standard LCP length (`size_t`) into the memory-efficient format.
-	 * @param num The LCP length to convert.
-	 * @return MemoryEfficientLCP The LCP value in the memory-efficient representation.
-	 * @note This function is only relevant when `MEMORY_EFFICIENT` is true.
-	 */
-	inline MemoryEfficientLCP get_memory_efficient_lcp(size_t num) const noexcept;
 };
 
 //-----------------------------------------------------------------------------
@@ -371,7 +383,7 @@ ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ZipTrie(unsigned max_
  * @brief Implementation of `contains`. Calls `search` and returns the boolean result.
  */
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-bool ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+bool ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::contains(const KEY_T* key) const noexcept
 {
 	return search(key).contains;
 }
@@ -380,9 +392,53 @@ bool ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::contains(const B
  * @brief Implementation of `lcp`. Calls `search` and returns the LCP result.
  */
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::lcp(const KEY_T* key) const noexcept
 {
 	return search(key).max_lcp;
+}
+
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+std::optional<typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ComparisonResult> ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::k_compare_prefix_check(
+	const Bucket& v,
+	const AncestorLCPs& ancestor_lcps,
+	size_t& out_start_lcp_val) const noexcept
+{
+	auto predecessor_lcp = ancestor_lcps.predecessor;
+	auto successor_lcp = ancestor_lcps.successor;
+
+	auto x_max_lcp = std::max(predecessor_lcp, successor_lcp);
+	auto corr_v_lcp = predecessor_lcp > successor_lcp ? v.ancestor_lcps.predecessor : v.ancestor_lcps.successor;
+
+	if (x_max_lcp != corr_v_lcp)
+	{
+		return ComparisonResult{ 
+			(x_max_lcp > corr_v_lcp) == (predecessor_lcp > successor_lcp) ? std::strong_ordering::less : std::strong_ordering::greater, 
+			std::min(x_max_lcp, corr_v_lcp) 
+		};
+	}
+
+	// LCPs matched on the path, determine starting bit length for key compare
+	if constexpr (MEMORY_EFFICIENT)
+	{
+		out_start_lcp_val = x_max_lcp.value();
+	} 
+	else 
+	{
+		out_start_lcp_val = x_max_lcp;
+	}
+
+	// Indicate that key comparison should proceed
+	return std::nullopt;
+}
+
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::convert_lcp(size_t val) const noexcept
+{
+	if constexpr (MEMORY_EFFICIENT) {
+		return get_memory_efficient_lcp(val);
+	} else {
+		return static_cast<LCP_T>(val);
+	}
 }
 
 /**
@@ -391,54 +447,37 @@ ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::LCP_T ZipTrie<CHAR_T,
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
 typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ComparisonResult ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::k_compare(const KEY_T* x, const Bucket& v, const AncestorLCPs& ancestor_lcps) const noexcept
 {
-	// Determine the relevant LCPs from the ancestor path and the current node v
-	auto predecessor_lcp = ancestor_lcps.predecessor;
-	auto successor_lcp = ancestor_lcps.successor;
+	size_t start_lcp_val = 0;
 
-	// Find the maximum LCP from the path taken so far to reach v's parent
-	auto x_max_lcp = std::max(predecessor_lcp, successor_lcp);
-	// Find the corresponding LCP stored *at* node v that relates to the path taken
-	// If the predecessor path had the max LCP, use v's predecessor LCP, otherwise use v's successor LCP.
-	auto corr_v_lcp = predecessor_lcp > successor_lcp ? v.ancestor_lcps.predecessor : v.ancestor_lcps.successor;
-
-	// If the path LCP (x_max_lcp) doesn't match the LCP stored at v (corr_v_lcp),
-	// we can determine the order without further string comparison.
-	if (x_max_lcp != corr_v_lcp)
+	if (auto prefix_result = k_compare_prefix_check(v, ancestor_lcps, start_lcp_val))
 	{
-		// Determine order based on which LCP was larger and which path (predecessor/successor) it belonged to.
-		// If x_max_lcp > corr_v_lcp, and the path taken was the predecessor path (pred > succ), then x < v.key.
-		// If x_max_lcp > corr_v_lcp, and the path taken was the successor path (pred <= succ), then x > v.key.
-		// And vice versa if x_max_lcp < corr_v_lcp.
-		return {
-			(x_max_lcp > corr_v_lcp) == (predecessor_lcp > successor_lcp) ? std::strong_ordering::less : std::strong_ordering::greater,
-			std::min(x_max_lcp, corr_v_lcp) // The actual LCP is the minimum of the two differing LCPs.
-		};
+		return *prefix_result; // Return early result
 	}
 
-	// If the path LCP matches the node's stored LCP, we need to perform actual string comparison
-	// starting from that known common prefix length (x_max_lcp).
-	if constexpr (MEMORY_EFFICIENT)
-	{
-		// Use the .value() method if LCPs are memory-efficient objects
-		auto [comparison, lcp_val] = x->seq_k_compare(*v.key, x_max_lcp.value());
-		// Convert the resulting LCP length back to the memory-efficient format
-		return { comparison, get_memory_efficient_lcp(lcp_val) };
-	}
-	else
-	{
-		// Use the LCP value directly if it's just an unsigned integer
-		auto [comparison, lcp_val] = x->seq_k_compare(*v.key, x_max_lcp);
-		return { comparison, static_cast<LCP_T>(lcp_val) };
-	}
+	auto [comparison, actual_lcp_val] = x->seq_k_compare(*v.key, start_lcp_val);
+
+	return { comparison, convert_lcp(actual_lcp_val) };
 }
 
 /**
  * @brief Implementation of the search logic. Traverses the trie based on `k_compare`.
  */
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResults ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResults ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::search(const KEY_T* key) const noexcept
 {
-	if (_root_index == NULLPTR) // Check if trie is empty
+	auto sequential_compare = [&](const KEY_T* k, const Bucket& v, const AncestorLCPs& ancestor_lcps)
+		{
+			return k_compare(k, v, ancestor_lcps);
+		};
+
+	return search_recursive(key, sequential_compare);
+}
+
+template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+template<typename CompareFunction>
+typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResults ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::search_recursive(const KEY_T* key, CompareFunction compare_func) const noexcept
+{
+	if (_root_index == NULLPTR)
 	{
 		return { false, {}, -1 }; // Return default LCP_T
 	}
@@ -450,27 +489,23 @@ typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResult
 	while (v_index != NULLPTR)
 	{
 		const Bucket& v_node = _buckets[v_index];
-		auto [ comparison, lcp ] = k_compare(key, v_node, ancestor_lcps);
+
+		auto [ comparison, lcp ] = compare_func(key, v_node, ancestor_lcps);
 
 		// Key found exactly
 		if (comparison == std::strong_ordering::equal)
 		{
-			// The LCP with the found key is the one calculated in the final k_compare
 			return { true, lcp, depth };
 		}
 
 		// Navigate left or right based on comparison, updating the relevant ancestor LCP
 		if (comparison == std::strong_ordering::less)
 		{
-			// Going left: the current node v becomes a potential successor boundary.
-			// The LCP with this boundary is `lcp`. Update the successor path LCP.
 			ancestor_lcps.successor = std::max(ancestor_lcps.successor, lcp);
 			v_index = v_node.left;
 		}
 		else // comparison == std::strong_ordering::greater
 		{
-			// Going right: the current node v becomes a potential predecessor boundary.
-			// The LCP with this boundary is `lcp`. Update the predecessor path LCP.
 			ancestor_lcps.predecessor = std::max(ancestor_lcps.predecessor, lcp);
 			v_index = v_node.right;
 		}
@@ -478,8 +513,7 @@ typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResult
 		++depth;
 	}
 
-	// Key not found. The max LCP is the maximum of the predecessor and successor LCPs
-	// accumulated along the search path.
+	// Key not found.
 	return { false, std::max(ancestor_lcps.predecessor, ancestor_lcps.successor), -1 };
 }
 
@@ -487,100 +521,78 @@ typename ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::SearchResult
  * @brief Implementation of insert. Creates a node and calls the recursive helper.
  */
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+void ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert(const KEY_T* key) noexcept
 {
-	// Add the new bucket to the vector. It gets a random rank.
 	_buckets.push_back({ key, RANK_T::get_random() });
-	unsigned new_node_index = size() - 1;
-	// Call the recursive insertion function starting from the root.
-	_root_index = insert_recursive(&_buckets[new_node_index], new_node_index, _root_index);
+	unsigned new_node_index = _buckets.size() - 1;
+
+	// Define a lambda that calls the sequential k_compare logic
+	auto sequential_compare = [&](const KEY_T* k, const Bucket& v, const AncestorLCPs& ancestor_lcps)
+		{
+			return k_compare(k, v, ancestor_lcps); // Calls ZipTrie's k_compare
+		};
+
+	// Call the core logic helper
+	_root_index = insert_recursive(&_buckets[new_node_index], new_node_index, _root_index, {}, sequential_compare);
 }
 
-/**
- * @brief Implementation of the recursive insertion logic with zipping.
- */
-template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps) noexcept
+template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
+template<typename CompareFunction>
+unsigned ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::insert_recursive(Bucket* x, unsigned x_index, unsigned v_index, AncestorLCPs ancestor_lcps, CompareFunction compare_func) noexcept
 {
 	// Base case: Found the insertion point (null link)
 	if (v_index == NULLPTR)
 	{
-		// Store the final ancestor LCPs calculated along the path in the new node.
 		x->ancestor_lcps = ancestor_lcps;
-		return x_index; // Return the index of the newly inserted node.
+		return x_index;
 	}
 
-	Bucket& v_node = _buckets[v_index]; // Get mutable reference to current node v
+	Bucket& v_node = _buckets[v_index];
 
-	// Compare the new key x->key with the current node v_node's key
-	auto [ comparison, lcp ] = k_compare(x->key, v_node, ancestor_lcps);
+	// *** Use the provided comparison function ***
+	auto [ comparison, lcp ] = compare_func(x->key, v_node, ancestor_lcps);
 
 	// Key already exists (or is equivalent based on comparison) - stop insertion.
 	if (comparison == std::strong_ordering::equal)
 	{
-		// Note: Behavior for duplicate keys is undefined. This simply stops recursion.
-		// Could potentially update value or handle differently if needed.
-		// Need to potentially deallocate or mark the pushed-back bucket x as unused.
-		// Current implementation might leave an unused bucket if duplicates are inserted.
-		return v_index; // Return index of existing node
+		return v_index;
 	}
 
 	// Navigate left
 	if (comparison == std::strong_ordering::less)
 	{
-		// Recursively insert into the left subtree.
-		// Update the successor ancestor LCP for the recursive call.
-		unsigned subroot_index = insert_recursive(x, x_index, v_node.left, { ancestor_lcps.predecessor, std::max(ancestor_lcps.successor, lcp) });
+		unsigned subroot_index = insert_recursive(x, x_index, v_node.left, { ancestor_lcps.predecessor, std::max(ancestor_lcps.successor, lcp) }, compare_func);
 
-		// Check if the new node x became the root of the subtree returned by the recursive call,
-		// AND if x's rank requires it to be "zipped" up past the current node v.
 		if (subroot_index == x_index && x->rank >= v_node.rank)
 		{
-			// Perform rotation (Right rotation around v)
-			v_node.left = x->right; // v adopts x's right child
-			x->right = v_index;     // x becomes parent of v
-
-			// Update ancestor LCPs stored *at the nodes* based on the rotation
-			v_node.ancestor_lcps.predecessor = lcp; // v's predecessor LCP is now the LCP calculated during comparison
-			x->ancestor_lcps = ancestor_lcps;       // x inherits the original ancestor LCPs from above v
-
-			return x_index; // x is the new root of this subtree
+			v_node.left = x->right;
+			x->right = v_index;
+			v_node.ancestor_lcps.predecessor = lcp;
+			x->ancestor_lcps = ancestor_lcps;
+			return x_index;
 		}
 		else
 		{
-			// No rotation needed, just update v's left child pointer
 			v_node.left = subroot_index;
 		}
 	}
-	// Navigate right
 	else // comparison == std::strong_ordering::greater
 	{
-		// Recursively insert into the right subtree.
-		// Update the predecessor ancestor LCP for the recursive call.
-		unsigned subroot_index = insert_recursive(x, x_index, v_node.right, { std::max(ancestor_lcps.predecessor, lcp), ancestor_lcps.successor });
+		unsigned subroot_index = insert_recursive(x, x_index, v_node.right, { std::max(ancestor_lcps.predecessor, lcp), ancestor_lcps.successor }, compare_func);
 
-		// Check if the new node x became the root of the subtree returned by the recursive call,
-		// AND if x's rank requires it to be "zipped" up past the current node v.
 		if (subroot_index == x_index && x->rank >= v_node.rank)
 		{
-			// Perform rotation (Left rotation around v)
-			v_node.right = x->left; // v adopts x's left child
-			x->left = v_index;      // x becomes parent of v
-
-			// Update ancestor LCPs stored *at the nodes* based on the rotation
-			v_node.ancestor_lcps.successor = lcp; // v's successor LCP is now the LCP calculated during comparison
-			x->ancestor_lcps = ancestor_lcps;     // x inherits the original ancestor LCPs from above v
-
-			return x_index; // x is the new root of this subtree
+			v_node.right = x->left;
+			x->left = v_index;
+			v_node.ancestor_lcps.successor = lcp;
+			x->ancestor_lcps = ancestor_lcps;
+			return x_index;
 		}
 		else
 		{
-			// No rotation needed, just update v's right child pointer
 			v_node.right = subroot_index;
 		}
 	}
-
-	// If no rotation occurred, v remains the root of this subtree
 	return v_index;
 }
 
@@ -621,7 +633,7 @@ int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::height(unsigned n
  * @brief Gets the depth of a key by calling `search`.
  */
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_depth(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+int ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::get_depth(const KEY_T* key) const noexcept
 {
 	return search(key).depth;
 }
