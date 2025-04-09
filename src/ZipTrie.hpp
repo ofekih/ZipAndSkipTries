@@ -1,10 +1,10 @@
 /**
  * @file ZipTrie.hpp
- * @brief Defines the ZipTrie class, a trie structure combined with Zip Tree properties for efficient string storage and retrieval.
+ * @brief Defines the ZipTrie class, a simple, dynamic data structure for strings.
  */
 #pragma once
 
-#include "BitString.cuh" // Assumes BitString class definition is here
+#include "BitString.cuh"
 
 #include <compare>   // For std::strong_ordering
 #include <limits>    // For std::numeric_limits
@@ -55,14 +55,14 @@ struct MemoryEfficientLCP
 
 /**
  * @struct GeometricRank
- * @brief Represents a rank used in Zip Trees, typically generated randomly.
- * Combines a geometric and a uniform random component for tie-breaking, crucial for the Zip Tree property.
+ * @brief Represents a rank used in zip-zip trees, typically generated randomly.
+ * Combines a geometric and a uniform random component for tie-breaking, crucial for the max-heap property.
  */
 struct GeometricRank
 {
-	/** @brief Rank component typically following a geometric distribution (primary rank). */
+	/** @brief Rank component following a geometric distribution (primary rank). */
 	uint8_t geometric_rank;
-	/** @brief Rank component typically following a uniform distribution (used for tie-breaking). */
+	/** @brief Rank component following a uniform distribution (used for tie-breaking). */
 	uint8_t uniform_rank;
 
 	/**
@@ -78,7 +78,6 @@ struct GeometricRank
 	 * @return GeometricRank A randomly generated rank.
 	 * @note Uses static generators internally. This means successive calls produce different random numbers,
 	 * but it is **not thread-safe** if called from multiple threads concurrently without external locking.
-	 * Consider providing thread-local or externally managed generators for concurrent use.
 	 */
 	static GeometricRank get_random()
 	{
@@ -97,15 +96,15 @@ struct GeometricRank
 
 /**
  * @class ZipTrie
- * @brief Implements a Zip Trie, a data structure combining properties of Tries and Zip Trees (Treaps).
+ * @brief Implements a zip trie, a data structure combining properties of tries and zip-zip Trees.
  *
- * A Zip Trie stores keys (represented by `BitString`) and associated ranks (`RANK_T`).
- * It maintains a tree structure based on both key prefixes (like a standard Trie) and
- * random ranks (like a Zip Tree/Treap). This combination aims to achieve balanced expected depth
+ * A zip trie stores keys (represented by `BitString`) and associated ranks (`RANK_T`).
+ * It maintains a tree structure based on both key prefixes (like a standard trie) and
+ * random ranks (like a zip-zip tree). This combination aims to achieve balanced expected depth
  * (logarithmic in the number of elements) while efficiently handling shared prefixes.
  *
  * The structure relies on comparing keys based on their Longest Common Prefix (LCP) with ancestor paths
- * to navigate the trie efficiently. Rotations (zips) based on ranks ensure the heap property (Zip property)
+ * to navigate the trie efficiently. Rotations (zips) based on ranks ensure the heap property (zip property)
  * is maintained, leading to the balanced structure on average.
  *
  * @tparam CHAR_T The underlying character type used in the keys (`BitString`). Typically `char` or `uint8_t`.
@@ -114,7 +113,7 @@ struct GeometricRank
  * @tparam RANK_T The type used for node ranks (default: `GeometricRank`). Must provide a static `get_random()`
  * method and support comparison operators (`<=>`).
  * @tparam CHAR_SIZE_BITS The number of significant bits per character in `CHAR_T`. Defaults to `sizeof(CHAR_T) * 8`.
- * Allows handling types where not all bits are used (e.g., 7-bit ASCII in an 8-bit char).
+ * Allows handling types where not all bits are used (e.g., 7-bit ASCII in an 8-bit char, 2-bit nucleotides in DNA strings).
  */
 template <typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T = GeometricRank, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
 class ZipTrie
@@ -131,9 +130,9 @@ public:
 	 * to potentially avoid reallocations during insertions.
 	 * @param max_lcp_length The maximum possible LCP length between any two keys expected to be stored.
 	 * This is primarily used for the `MemoryEfficientLCP` calculation if enabled.
-	 * Setting this accurately can improve the precision of approximate LCPs.
+	 * Setting this accurately guarantees good expected performance.
 	 */
-	ZipTrie(unsigned max_size, unsigned max_lcp_length);
+	ZipTrie(unsigned max_size, unsigned max_lcp_length) noexcept;
 
 	/**
 	 * @brief Calculates the depth of a given key in the trie.
@@ -181,11 +180,11 @@ public:
 	LCP_T lcp(const KEY_T* key) const noexcept;
 
 	/**
-	 * @brief Inserts a key into the Zip Trie.
+	 * @brief Inserts a key into the zip trie.
 	 *
 	 * A new node is created for the key, assigned a random rank using `RANK_T::get_random()`,
-	 * and inserted into the trie. The insertion maintains both the Trie property (ordering based on keys)
-	 * and the Zip property (heap ordering based on ranks) using rotations (zips).
+	 * and inserted into the zip trie. The insertion maintains both the binary search tree property (ordering based on keys)
+	 * and the max-heap property (heap ordering based on ranks) using rotations (zips).
 	 *
 	 * **Assumes keys are unique.** Inserting a key that already exists (or compares as equal)
 	 * results in the insertion being skipped, and the existing tree structure remains unchanged.
@@ -220,7 +219,7 @@ public:
 	 * @brief Directly adds a pre-constructed bucket to the internal storage vector.
 	 * @warning Intended for testing or specific initialization scenarios **only**.
 	 * This method bypasses the standard insertion logic (`insert`), including rank generation
-	 * and maintaining the Zip/Trie properties. Using it improperly can corrupt the trie structure.
+	 * and maintaining the zip trie properties. Using it improperly can corrupt the trie structure.
 	 * @param key Pointer to the key for the new bucket.
 	 * @param rank The rank to assign to the new bucket.
 	 * @param left Index of the left child (use `NULLPTR` for none).
@@ -237,7 +236,7 @@ public:
 	 * @brief Directly sets the root index of the trie.
 	 * @warning Intended for testing or specific initialization scenarios **only**.
 	 * This method bypasses the standard insertion logic. Using it improperly can lead to
-	 * an invalid trie state (e.g., pointing to an invalid index or violating trie properties).
+	 * an invalid zip trie state (e.g., pointing to an invalid index or violating zip trie properties).
 	 * @param root_index The index in `_buckets` to set as the new root.
 	 */
 	void set_root_index(unsigned root_index) noexcept
@@ -354,9 +353,9 @@ protected:
 	 *
 	 * Traverses the trie based on key comparisons (`compare_func`) and LCPs, updating `ancestor_lcps`
 	 * along the path. When the correct insertion position (a `NULLPTR` link) is found, it inserts the node `x`.
-	 * During the backtracking phase (as the recursion unwinds), it performs rotations (zips)
-	 * if the rank of the newly inserted node `x` (or the root of the subtree returned by the recursive call)
-	 * is higher than or equal to the rank of the current node `v`. This maintains the Zip property (max-heap on ranks).
+	 * During the backtracking phase (as the recursion unwinds), it performs a 'zip' operation instead of rotations.
+	 * If the rank of the newly inserted node `x` (or the root of the subtree returned by the recursive call)
+	 * is higher than or equal to the rank of the current node `v`. This maintains the max-heap property (max-heap on ranks).
 	 *
 	 * @tparam CompareFunction A callable type for comparing keys, same signature as in `search_recursive`.
 	 * @param x Pointer to the new bucket being inserted (already added to `_buckets`).
@@ -390,7 +389,7 @@ protected:
 
 	/**
 	 * @brief Performs an initial check based on ancestor LCPs before full key comparison.
-	 * This is a core optimization in Zip Trie navigation (`k_compare`). It compares the LCPs
+	 * This is a core optimization in zip trie navigation (`k_compare`). It compares the LCPs
 	 * accumulated along the search path (`ancestor_lcps`) with the LCPs stored in the current node `v`
 	 * (`v.ancestor_lcps`, which were the path LCPs when `v` was inserted).
 	 * If these path LCPs differ significantly, the relative order of the search key `x` and node `v`
@@ -477,7 +476,7 @@ private:
  * @brief Constructor implementation. Initializes members and reserves bucket capacity.
  */
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>
-ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ZipTrie(unsigned max_size, unsigned max_lcp_length)
+ZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ZipTrie(unsigned max_size, unsigned max_lcp_length) noexcept
 	: _root_index(NULLPTR),
 	  _max_lcp_length(max_lcp_length),
 	  // Calculate log2(max_size) safely, handling max_size = 0 case.
