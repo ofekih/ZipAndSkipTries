@@ -1,0 +1,47 @@
+# .github/workflows/build-docs.yml
+
+name: Build Documentation # The name displayed in the GitHub Actions UI
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [ main ] # Runs on pushes to the 'main' branch
+  pull_request:
+    branches: [ main ] # Runs on pull requests targeting the 'main' branch
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build-docs"
+  build-docs:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest # Use the latest available Ubuntu runner
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # 1. Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
+      - name: Checkout Repository
+        uses: actions/checkout@v4 # Use the standard checkout action (v4 is current as of early 2025)
+
+      # 2. Install necessary dependencies (Doxygen and Graphviz for diagrams)
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz # Install doxygen and graphviz
+
+      # 3. Run the make command to build the documentation
+      - name: Build Documentation
+        run: make docs
+
+      # 4. (Optional but Recommended) Upload the generated documentation as an artifact
+      #    This allows you to download the generated docs from the workflow run page.
+      #    *** IMPORTANT: Adjust the 'path:' below to match the actual output directory ***
+      #    *** created by 'make docs'. Common examples: 'docs/html', 'build/docs/html', 'html' ***
+      - name: Upload Documentation Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html # The name of the artifact zip file
+          path: docs/html # <<< CHANGE THIS PATH if your Doxygen output is elsewhere
+          if-no-files-found: error # Fail the step if the path is wrong or no files were generated
