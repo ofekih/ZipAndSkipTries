@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 
-# default value is 2^10
 DEFAULT_VALUE=$((2**10))
-
-# max # words is 2^19
 MAX_NUM_WORDS=$((2**19))
-
-# max word length is 2^22
 MAX_WORD_LENGTH=$((2**22))
 
-NUM_REPETITIONS=100
+NUM_REPETITIONS=${1:-10}
 
 run_variable_lcp_benchmarks() {
 	local num_words=$1
@@ -21,7 +16,7 @@ run_variable_lcp_benchmarks() {
 	echo "Running variable LCP benchmarks..."
 
 	while (( mean_lcp <= word_length )); do
-		./bin/benchmark $num_words $word_length $mean_lcp $num_repetitions
+		./bin/synthetic_benchmark $num_words $word_length $mean_lcp $num_repetitions
 
 		mean_lcp=$(( mean_lcp * 2 ))
 	done
@@ -37,7 +32,7 @@ run_variable_word_length_benchmarks() {
 	echo "Running variable word length benchmarks..."
 
 	while (( word_length <= max_word_length )); do
-		./bin/benchmark $num_words $word_length $mean_lcp $num_repetitions
+		./bin/synthetic_benchmark $num_words $word_length $mean_lcp $num_repetitions
 
 		word_length=$(( word_length * 2 ))
 	done
@@ -53,7 +48,7 @@ run_variable_num_words_benchmarks() {
 	echo "Running variable num words benchmarks..."
 
 	while (( num_words <= max_num_words )); do
-		./bin/benchmark $num_words $word_length $mean_lcp $num_repetitions
+		./bin/synthetic_benchmark $num_words $word_length $mean_lcp $num_repetitions
 
 		num_words=$(( num_words * 2 ))
 	done

@@ -3,12 +3,12 @@ CC = nvcc
 
 # Compiler flags
 COMPUTE_CAPABILITY=61
-GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY)
+GENCODE=-gencode arch=compute_$(COMPUTE_CAPABILITY),code=compute_$(COMPUTE_CAPABILITY)
 
 SUPPRESS = 68 815 174
 DIAG_SUPPRESS = $(foreach diag,$(SUPPRESS),-diag-suppress=$(diag))
 
-CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 -O3 --expt-relaxed-constexpr $(DIAG_SUPPRESS)
+CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c++20 -O3 --expt-relaxed-constexpr $(DIAG_SUPPRESS) -Wno-deprecated-gpu-targets
 
 # Dependency flags (generate dependency files during compilation)
 DEPFLAGS = -MMD -MP
@@ -18,7 +18,7 @@ SRC_DIRS = src ctriepp/ctriepp
 OBJ_DIR = obj
 BIN_DIR = bin
 DOC_DIR = docs
-DATA_DIR = data-v3
+DATA_DIRS = data-genetic data-synthetic
 
 # Executables names without prefix/suffix (just the target name)
 EXEC_NAMES = test synthetic_benchmark genetic_benchmark verify
@@ -51,7 +51,7 @@ all: directories $(EXECUTABLES)
 
 # Create necessary directories
 directories:
-	mkdir -p $(BIN_DIR) $(OBJ_DIR) $(DOC_DIR) $(DATA_DIR)
+	mkdir -p $(BIN_DIR) $(OBJ_DIR) $(DOC_DIR) $(DATA_DIRS)
 
 # Compile source files into object files
 $(OBJ_DIR)/%.o: %.cpp

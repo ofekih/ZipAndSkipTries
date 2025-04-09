@@ -10,14 +10,12 @@ from typing import NamedTuple
 import numpy as np
 
 import csv
+import socket
+import warnings
 
 DATA_DIRECTORY = Path('data-synthetic')
-# DATA_DIRECTORY = Path('data-v5')
-#DATA_DIRECTORY = Path('data-v3')
-HOSTNAME = 'korn.ics.uci.edu'
-# HOSTNAME = 'Yegion'
+HOSTNAME = socket.gethostname()
 MAX_WORD_LENGTH = 2**26
-# MAX_WORD_LENGTH = 2**22
 CONSTRUCTION_FILENAME = 'construction-data'
 REMOVAL_FILENAME = 'removal-data'
 SEARCH_FILENAME = 'search-data'
@@ -52,8 +50,8 @@ def get_file(method_name: str, data_type: DataType) -> Path:
 class FitLine(NamedTuple):
 	m: float
 	b: float
-	x: list[int]
-	y: list[float]
+	x: tuple[int, ...]
+	y: tuple[float, ...]
 	r2: float
 
 def binary_search(x: list[int], key: int) -> int:
@@ -70,11 +68,15 @@ def binary_search(x: list[int], key: int) -> int:
 
 	return low
 
-def fit_log_line(x: list[int], y: list[float], skip_until: int = 0, all_points: bool = False, add_next: list[int] = []) -> FitLine:
+def fit_log_line(x: list[int], y: list[float], skip_until: int = 0, all_points: bool = False, add_next: list[int] = []) -> FitLine | None:
 	if skip_until > 0:
 		skip = binary_search(x, skip_until)
 	else:
 		skip = 0
+
+	if skip == len(x):
+		warnings.warn(f'The trend line starts after the max data, so it is not shown')
+		return None
 
 	logx, logy = np.log2(x[skip:]), np.log2(y[skip:])
 	m, b = np.polyfit(logx, logy, 1)
@@ -92,12 +94,11 @@ def fit_log_line(x: list[int], y: list[float], skip_until: int = 0, all_points: 
 	r2 = np.sum((expected_y[:len(expected_y) - len(add_next)] - average_y) ** 2) / np.sum((logy - average_y) ** 2)
 
 	return FitLine(m = m, b = b,
-		x = x[skip::] if all_points else x[skip::len(x) - skip - 1],
-		y = 2 ** (expected_y if all_points else expected_y[::len(expected_y) - 1]), # type: ignore
+		x = tuple(x[skip::] if all_points else x[skip::len(x) - skip - 1]),
+		y = tuple(2 ** (expected_y if all_points else expected_y[::len(expected_y) - 1])),
 		r2 = r2)
 
 def plot(figure_name: str, save: bool, ylabel: str, xlabel: str = 'Num nodes (n)', legend_loc: str = 'best'):
-	# plt.title(title) # type: ignore
 	plt.xlabel(xlabel) # type: ignore
 	plt.ylabel(ylabel) # type: ignore
 
@@ -131,7 +132,7 @@ def load_agg_data(data_structure: str, data_type: DataType) -> dict[tuple[int, i
 	return data
 
 @cache
-def load_data(data_structure: str, data_type: DataType, match: tuple[int, int, int]) -> tuple[list[int], list[float]]:
+def load_data(data_structure: str, data_type: DataType, match: tuple[int, int, int]) -> tuple[tuple[int], tuple[float]]:
 	x: list[int] = []
 	y: list[float] = []
 
@@ -148,7 +149,8 @@ def load_data(data_structure: str, data_type: DataType, match: tuple[int, int, i
 			x.append(l)
 			y.append(time_ns / num_repetitions)
 
-	return tuple(zip(*sorted(zip(x, y))))
+	A, B = zip(*sorted(zip(x, y)))
+	return A, B
 
 @cache
 def moving_average(x: list[int], y: list[float], window: float = 1.9) -> tuple[list[int], list[float]]:
@@ -192,27 +194,26 @@ def moving_average(x: list[int], y: list[float], window: float = 1.9) -> tuple[l
 	# Return the original x values and the calculated moving averages
 	return x, moving_averages.tolist()
 
-def add_data_point_to_plot(method_name: str, data_type: DataType, match: tuple[int, int, int], skip_until: int = 0, fitlabel: str = '', maxvalue: int = -1, markersize: float = POINT_SIZE, draw_best_fit: bool = True, label: str = ''):
+def add_data_point_to_plot(method_name: str, data_type: DataType, match: tuple[int, int, int], skip_until: int = 0, fitlabel: str = '', max_value: int = -1, markersize: float = POINT_SIZE, draw_best_fit: bool = True, label: str = ''):
 	x, y = load_data(method_name, data_type, match)
 
-	if maxvalue > 0:
-		x, y = zip(*[(x[i], y[i]) for i in range(len(x)) if x[i] <= maxvalue])
+	if max_value > 0:
+		x, y = zip(*[(x[i], y[i]) for i in range(len(x)) if x[i] <= max_value])
 
 	x, y = moving_average(x, y) # type: ignore
 
 	label = label if label else method_name
 
-	if draw_best_fit:
+	fit = fit_log_line(x, y, skip_until=skip_until)
+	
+	if draw_best_fit and fit:
 		p = plt.loglog(x, y, base=2, marker = 'o', markersize = markersize, linestyle = 'None') # type: ignore
-		pcolor = p[0].get_color()
-
-		fit = fit_log_line(x, y, skip_until=skip_until)
+		pcolor = p[0].get_color() # type: ignore
 
 		sign = '+' if fit.b >= 0 else '-'
 
 		plt.loglog(fit.x, fit.y, base=2, color=pcolor, linestyle='--', # type: ignore
 			label=f'{label}: $T({fitlabel}) = {fit.m:.1f} {fitlabel} {sign} {abs(fit.b):.1f}, R^2 = {fit.r2:.2f}$')
-			# label=f'{label}: $T({fitlabel}) = {fit.m:.1f} \\cdot {fitlabel} + {fit.b:.1f}, R^2 = {fit.r2:.2f}$')
 	else:
 		plt.loglog(x, y, base=2, marker = 'o', markersize = markersize, linestyle = 'None', label=label) # type: ignore
 

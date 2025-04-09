@@ -191,6 +191,11 @@ public:
 			return m_index == other.m_index;
 		}
 
+		bool operator!=(const Iterator& other) const noexcept
+		{
+			return !(*this == other);
+		}
+
 	private:
 		const BitString& m_bs;
 		size_t m_index;

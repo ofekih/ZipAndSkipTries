@@ -125,7 +125,7 @@ void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t nu
 			}
 		}
 
-		save_construction_data("c-trie++", n, N, L, timer.elapsed_nanoseconds());
+		save_construction_data("c-trie++", n, N, L, timer.elapsed_nanoseconds(), 1, 0, true);
 
 		timer.start();
 
@@ -140,7 +140,7 @@ void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t nu
 			}
 		}
 
-		save_construction_data("ZT", n, N, L, timer.elapsed_nanoseconds());
+		save_construction_data("ZT", n, N, L, timer.elapsed_nanoseconds(), 1, 0, true);
 
 		timer.start();
 
@@ -154,7 +154,7 @@ void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t nu
 			}
 		}
 
-		save_construction_data("MI-ZT", n, N, L, timer.elapsed_nanoseconds());
+		save_construction_data("MI-ZT", n, N, L, timer.elapsed_nanoseconds(), 1, 0, true);
 
 		timer.start();
 
@@ -168,7 +168,7 @@ void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t nu
 			}
 		}
 
-		save_construction_data("PZT", n, N, L, timer.elapsed_nanoseconds(), MIN_PAR_COMPARE_WORD_SIZE);
+		save_construction_data("PZT", n, N, L, timer.elapsed_nanoseconds(), 1, MIN_PAR_COMPARE_WORD_SIZE, true);
 
 		timer.start();
 
@@ -182,7 +182,7 @@ void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t nu
 			}
 		}
 
-		save_construction_data("MI-PZT", n, N, L, timer.elapsed_nanoseconds(), MIN_PAR_COMPARE_WORD_SIZE);
+		save_construction_data("MI-PZT", n, N, L, timer.elapsed_nanoseconds(), 1, MIN_PAR_COMPARE_WORD_SIZE, true);
 	}
 }
 
@@ -226,7 +226,7 @@ void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t n
 			ctriepp.contains(data[i].gene_ls);
 		}
 
-		save_search_data("c-trie++", n, m, l, timer.elapsed_nanoseconds(), num_repetitions);
+		save_search_data("c-trie++", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, 0, true);
 
 		timer.start();
 
@@ -235,7 +235,7 @@ void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t n
 			zt.contains(&data[i].gene_bs);
 		}
 
-		save_search_data("ZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions);
+		save_search_data("ZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, 0, true);
 
 		timer.start();
 
@@ -244,7 +244,7 @@ void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t n
 			mi_zt.contains(&data[i].gene_bs);
 		}
 
-		save_search_data("MI-ZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions);
+		save_search_data("MI-ZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, 0, true);
 
 		timer.start();
 
@@ -253,7 +253,7 @@ void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t n
 			pzt.contains(&data[i].gene_bs);
 		}
 
-		save_search_data("PZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+		save_search_data("PZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE, true);
 
 		timer.start();
 
@@ -262,7 +262,7 @@ void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t n
 			mi_pzt.contains(&data[i].gene_bs);
 		}
 
-		save_search_data("MI-PZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE);
+		save_search_data("MI-PZT", n, m, l, timer.elapsed_nanoseconds(), num_repetitions, MIN_PAR_COMPARE_WORD_SIZE, true);
 	}
 }
 

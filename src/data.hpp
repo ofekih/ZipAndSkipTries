@@ -4,28 +4,38 @@
 #include <ctime>
 #include <string>
 
-static const std::string DATA_DIRECTORY = "data-genetic/";
+static const std::string GENETIC_DATA_DIRECTORY = "data-genetic/";
+static const std::string SYNTHETIC_DATA_DIRECTORY = "data-synthetic/";
 static const std::string SEARCH_DATA_FILENAME = "search-data-";
 static const std::string CONSTRUCTION_DATA_FILENAME = "construction-data-";
 static const std::string REMOVAL_DATA_FILENAME = "removal-data-";
 static const std::string CSV_EXTENSION = ".csv";
 
+// Get the appropriate data directory based on whether the data is genetic or synthetic
+inline const std::string& get_data_directory(bool is_genetic = false)
+{
+	return is_genetic ? GENETIC_DATA_DIRECTORY : SYNTHETIC_DATA_DIRECTORY;
+}
+
 // Save search data to a file
 // n: number of elements in skip list
 // m: length of search string
 // l: lcp of search string
-void save_search_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1, size_t min_par_compare = 0);
+// is_genetic: whether to save to genetic or synthetic data directory
+void save_search_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1, size_t min_par_compare = 0, bool is_genetic = false);
 
 // Save construction data to a file
 // n: number of elements to be inserted
 // m: string length
 // l: average lcp length
-void save_construction_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1, size_t min_par_compare = 0);
+// is_genetic: whether to save to genetic or synthetic data directory
+void save_construction_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1, size_t min_par_compare = 0, bool is_genetic = false);
 
 // Save removal data to a file
 // n: number of elements to be removed
 // m: string length
-void save_removal_data(const std::string& method, size_t n, size_t m, size_t num_nanoseconds, size_t num_repetitions = 1, size_t min_par_compare = 0);
+// is_genetic: whether to save to genetic or synthetic data directory
+void save_removal_data(const std::string& method, size_t n, size_t m, size_t l, size_t num_nanoseconds, size_t num_repetitions = 1, size_t min_par_compare = 0, bool is_genetic = false);
 
 std::string get_hostname();
 static const std::string HOSTNAME = get_hostname();
@@ -44,7 +54,7 @@ struct WallTimer
 	{
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start_time);
-	
+
 		return duration.count();
 	}
 

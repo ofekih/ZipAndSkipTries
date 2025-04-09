@@ -36,4 +36,5 @@
 .vscode/
 bin/
 
-data/
+data-genetic/
+data-synthetic/
