@@ -32,7 +32,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = "String Skip List"
+PROJECT_NAME           = "Zip and Skip Tries"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -328,7 +328,7 @@ OPTIMIZE_OUTPUT_SLICE  = NO
 #
 # Note see also the list of default file extension mappings.
 
-EXTENSION_MAPPING      =
+EXTENSION_MAPPING      = cu=C++ cuh=C++ cuhpp=C++
 
 # If the MARKDOWN_SUPPORT tag is enabled then doxygen pre-processes all comments
 # according to the Markdown format, which allows for more readable
@@ -911,6 +911,7 @@ FILE_PATTERNS          = *.c \
                          *.hh \
                          *.hxx \
                          *.hpp \
+                         *.cuh \
                          *.h++ \
                          *.cs \
                          *.d \

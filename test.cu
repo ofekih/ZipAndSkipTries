@@ -90,18 +90,18 @@ int main()
 	trie.insert(&bit_strings[9]);
 	trie.insert(&bit_strings[10]);
 	trie.insert(&bit_strings[11]);
-	trie.insert(&bit_strings[12]);
+	// trie.insert(&bit_strings[12]);
 	trie.insert(&bit_strings[13]);
 
-	// for (const auto& word : bit_strings)
-	// {
-	// 	if (!trie.contains(&word))
-	// 	{
-	// 		// should printf something like: <word> not found in trie, but shares an LCP length of <lcp_length>
-	// 		// use trie.lcp(&word) to get the LCP length
-	// 		printf("%s not found in trie, but shares an LCP length of %u\n", word.to_string().c_str(), trie.lcp(&word));
-	// 	}
-	// }
+	for (const auto& word : bit_strings)
+	{
+		if (!trie.contains(&word))
+		{
+			// should printf something like: <word> not found in trie, but shares an LCP length of <lcp_length>
+			// use trie.lcp(&word) to get the LCP length
+			printf("%s not found in trie, but shares an LCP length of %u\n", word.to_string().c_str(), trie.lcp(&word));
+		}
+	}
 
 	trie.to_dot("test.dot");
 
