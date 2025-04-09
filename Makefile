@@ -14,7 +14,7 @@ CFLAGS = $(GENCODE) -Xcompiler "-w,-march=native,-DNDEBUG,-Wno-narrowing" -std=c
 DEPFLAGS = -MMD -MP
 
 # Directories
-SRC_DIRS = src ctriepp/ctriepp
+SRC_DIRS = src
 OBJ_DIR = obj
 BIN_DIR = bin
 DOC_DIR = docs
@@ -84,5 +84,5 @@ vpath %.cu $(SRC_DIRS)
 
 # Clean
 clean:
-	rm -f $(BASE_OBJ_FILES) $(DEP_FILES) $(EXECUTABLES)
+	rm -rf $(OBJ_DIR)/*
 	rm -rf $(DOC_DIR)/*

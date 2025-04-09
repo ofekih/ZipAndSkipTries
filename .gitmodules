@@ -1,0 +1,3 @@
+[submodule "ctriepp"]
+	path = ctriepp
+	url = https://gitlab.com/ofek.gila1/ctriepp.git
