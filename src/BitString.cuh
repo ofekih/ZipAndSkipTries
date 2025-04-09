@@ -50,7 +50,8 @@ static constexpr size_t MIN_PAR_COMPARE_WORD_SIZE = 1;
  * @tparam CHAR_T The character type to be stored (e.g., `char`, `uint8_t`, `wchar_t`).
  * @tparam CHAR_SIZE_BITS The number of bits representing relevant data within `CHAR_T`.
  * Defaults to the full size of `CHAR_T` in bits. This allows handling
- * types where only a subset of bits are meaningful (e.g., 7-bit ASCII in an 8-bit char).
+ * types where only a subset of bits are meaningful (e.g., 7-bit ASCII in an 8-bit char,
+ * or 2-bit nucleotides for DNA strings).
  */
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
 class BitString
@@ -342,7 +343,6 @@ public:
 	class Iterator
 	{
 	public:
-		// Iterator traits (optional but good practice)
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = CHAR_T;
 		using difference_type = std::ptrdiff_t;
