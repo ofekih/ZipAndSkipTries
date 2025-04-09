@@ -18,7 +18,8 @@
 #include "msw.cuh"
 #include "utility.cuh"
 
-static constexpr size_t MIN_PAR_COMPARE_WORD_SIZE = 1 << 0;
+// Only invoke parallel compare after this many words, sequential beforehand
+static constexpr size_t MIN_PAR_COMPARE_WORD_SIZE = 0;
 
 /**
  * @brief A class to store strings compactly into integers, packing as many characters that fit into a single word.
