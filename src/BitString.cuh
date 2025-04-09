@@ -586,8 +586,6 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::seq_k_compare(const BitString& other, si
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
 auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, size_t& max_copied) const noexcept -> ResultLCP
 {
-	const size_t max_compare_until = lcp + max_compare; // Max character index to compare
-
 	// Fallback for small comparisons
 	if (max_compare <= MIN_PAR_COMPARE_CHAR_SIZE)
 	{
