@@ -4,6 +4,7 @@
 #include "src/synthetic.hpp"
 #include "src/ZipTrie.hpp"
 #include "src/ParallelZipTrie.cuh"
+#include "src/data.hpp"
 
 #include <stdio.h>
 #include <cassert>
@@ -13,19 +14,21 @@
 
 int main()
 {
-	size_t word_length = 1000;
-	size_t num_words = 1000;
-	size_t avg_lcp_length = 50;
+	size_t word_length = 10000;
+	size_t num_words = 10000;
+	size_t avg_lcp_length = 500;
 	auto words = get_random_words(word_length, num_words, avg_lcp_length);
-	
+
 	std::vector<BitString<char>> bs(num_words);
 	std::transform(words.begin(), words.end(), bs.begin(), [](const std::string& word) {
 		return BitString<char>(word);
 	});
 
+	CPUTimer timer;
+
 	// verify par_find_mismatch_s
 	{
-		printf("\nVerifying par_find_mismatch_s\n");
+		timer.start("\nVerifying par_find_mismatch_s");
 
 		size_t max_size_words = (word_length + BitString<char>::ALPHA - 1) / BitString<char>::ALPHA;
 		uintmax_t *d_a = copy_to_device(bs[0].data(), bs[0].size());
@@ -46,6 +49,8 @@ int main()
 
 		device_free(d_a);
 		device_free(d_largeblock);
+
+		timer.print();
 	}
 
 	// Verify SkipTrie
@@ -54,14 +59,16 @@ int main()
 
 		SkipTrie<char> trie;
 
-		printf("\tInserting words\n");
+		timer.start("\tInserting words");
 
 		for (const auto& word : bs)
 		{
 			trie.insert(&word);
 		}
 
-		printf("\tVerifying words\n");
+		timer.print();
+
+		timer.start("\tVerifying words");
 
 		for (const auto& word : bs)
 		{
@@ -70,6 +77,8 @@ int main()
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		timer.print();
 	}
 
 	// Verify ParallelSkipTrie
@@ -78,14 +87,16 @@ int main()
 
 		ParallelSkipTrie<char> trie(word_length);
 
-		printf("\tInserting words\n");
+		timer.start("\tInserting words");
 
 		for (const auto& word : bs)
 		{
 			trie.insert(&word);
 		}
 
-		printf("\tVerifying words\n");
+		timer.print();
+
+		timer.start("\tVerifying words");
 
 		for (const auto& word : bs)
 		{
@@ -94,6 +105,8 @@ int main()
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		timer.print();
 	}
 
 	// Verify ZipTrie
@@ -102,14 +115,16 @@ int main()
 
 		ZipTrie<char, false> trie(num_words, word_length);
 
-		printf("\tInserting words\n");
+		timer.start("\tInserting words");
 
 		for (const auto& word : bs)
 		{
 			trie.insert(&word);
 		}
 
-		printf("\tVerifying words\n");
+		timer.print();
+
+		timer.start("\tVerifying words");
 
 		for (const auto& word : bs)
 		{
@@ -118,6 +133,8 @@ int main()
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		timer.print();
 	}
 
 	// Verify ParallelZipTrie
@@ -126,14 +143,16 @@ int main()
 
 		ParallelZipTrie<char, false> trie(num_words, word_length);
 
-		printf("\tInserting words\n");
+		timer.start("\tInserting words");
 
 		for (const auto& word : bs)
 		{
 			trie.insert(&word);
 		}
 
-		printf("\tVerifying words\n");
+		timer.print();
+
+		timer.start("\tVerifying words");
 
 		for (const auto& word : bs)
 		{
@@ -142,6 +161,8 @@ int main()
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		timer.print();
 	}
 
 	// Verify Memory-Efficient ZipTrie
@@ -150,14 +171,16 @@ int main()
 
 		ZipTrie<char, true> trie(num_words, word_length);
 
-		printf("\tInserting words\n");
+		timer.start("\tInserting words");
 
 		for (const auto& word : bs)
 		{
 			trie.insert(&word);
 		}
 
-		printf("\tVerifying words\n");
+		timer.print();
+
+		timer.start("\tVerifying words");
 
 		for (const auto& word : bs)
 		{
@@ -166,6 +189,8 @@ int main()
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		timer.print();
 	}
 
 	// Verify Memory-Efficient ParallelZipTrie
@@ -174,14 +199,16 @@ int main()
 
 		ParallelZipTrie<char, true> trie(num_words, word_length);
 
-		printf("\tInserting words\n");
+		timer.start("\tInserting words");
 
 		for (const auto& word : bs)
 		{
 			trie.insert(&word);
 		}
 
-		printf("\tVerifying words\n");
+		timer.print();
+
+		timer.start("\tVerifying words");
 
 		for (const auto& word : bs)
 		{
@@ -190,6 +217,8 @@ int main()
 				exit(EXIT_FAILURE);
 			}
 		}
+
+		timer.print();
 	}
 
 	printf("\nAll tests passed!\n");
