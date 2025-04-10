@@ -1,5 +1,30 @@
-// Implementation of synthetic data generation utilities
-// See synthetic.hpp for comprehensive documentation
+/**
+ * @file synthetic.cpp
+ * @brief Implementation of synthetic data generation utilities for benchmark testing.
+ *
+ * @details This file implements the functions declared in synthetic.hpp for generating
+ * random strings with controlled properties. The implementation provides two key functions:
+ *
+ * 1. get_random_word: Generates a single random string of specified length using
+ *    characters from a diverse alphabet.
+ *
+ * 2. get_random_words: Generates a collection of random strings with controlled
+ *    Longest Common Prefix (LCP) lengths following a Poisson distribution.
+ *
+ * The implementation uses C++ standard library random number generators (std::mt19937)
+ * and distributions (std::uniform_int_distribution, std::poisson_distribution) to
+ * create randomized but statistically controlled datasets. Each generated string
+ * includes a unique signature to ensure distinctness while maintaining the desired
+ * LCP distribution properties.
+ *
+ * These synthetic datasets are essential for benchmarking trie data structures under
+ * controlled conditions, allowing for systematic performance analysis with varying
+ * input characteristics.
+ *
+ * @see synthetic.hpp
+ * @see get_random_word
+ * @see get_random_words
+ */
 
 #include "synthetic.hpp"
 
@@ -8,12 +33,29 @@
 #include <string>
 #include <vector>
 
-// The alphabet used for generating random strings
-// Contains lowercase and uppercase letters, digits, and special characters
+/**
+ * @brief The alphabet used for generating random strings.
+ * @details Contains 94 characters including lowercase letters (a-z), uppercase letters (A-Z),
+ * digits (0-9), and special characters. This diverse alphabet provides a large character space
+ * for generating random strings, which helps create realistic test data with high entropy.
+ * The size of this alphabet also affects the calculation of unique signature length in
+ * get_random_words().
+ */
 static const std::string ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
 
-// Implementation of get_random_word
-// See synthetic.hpp for detailed documentation
+/**
+ * @brief Implementation of get_random_word function.
+ * @details Generates a random string of specified length using characters from the ALPHABET.
+ * The implementation uses a static random number generator (std::mt19937) initialized with
+ * either a random seed from std::random_device or an optional fixed seed for reproducible results.
+ *
+ * Each character in the string is selected independently using a uniform distribution over
+ * the entire alphabet, ensuring equal probability for all characters.
+ *
+ * @param length The desired length of the random string.
+ * @return std::string A newly generated random string of the specified length.
+ * @see synthetic.hpp for the function declaration and additional documentation.
+ */
 std::string get_random_word(size_t length) noexcept
 {
 	// Use a static random device for initialization of the generator
@@ -22,7 +64,7 @@ std::string get_random_word(size_t length) noexcept
 	// static std::mt19937 gen(0);
 	// Use random seed for non-deterministic generation
 	static std::mt19937 gen(rd());
-	
+
 	// Create uniform distribution for selecting characters from the alphabet
 	std::uniform_int_distribution<size_t> dis(0, ALPHABET.size() - 1);
 
@@ -34,8 +76,27 @@ std::string get_random_word(size_t length) noexcept
 	return str;
 }
 
-// Implementation of get_random_words
-// See synthetic.hpp for detailed documentation
+/**
+ * @brief Implementation of get_random_words function.
+ * @details Generates a collection of random strings with controlled Longest Common Prefix (LCP)
+ * properties. The implementation follows these steps:
+ *
+ * 1. Generate num_words random strings of the specified length.
+ * 2. Calculate the minimum signature length needed to ensure uniqueness.
+ * 3. Add a unique signature at the end of each string by encoding its index.
+ * 4. For each string, generate a random LCP length from a Poisson distribution.
+ * 5. Replace part of each string to create the desired LCP pattern while preserving the unique signature.
+ *
+ * The Poisson distribution ensures that the LCP lengths follow a realistic distribution with
+ * the specified mean, while the unique signatures guarantee that all strings remain distinct
+ * regardless of the LCP modifications.
+ *
+ * @param length The length of each string to generate.
+ * @param num_words The number of strings to generate.
+ * @param mean_lcp_length The mean length of the Longest Common Prefix between strings.
+ * @return std::vector<std::string> A vector containing the generated strings.
+ * @see synthetic.hpp for the function declaration and additional documentation.
+ */
 std::vector<std::string> get_random_words(size_t length, size_t num_words, double mean_lcp_length) noexcept
 {
 	// Use Poisson distribution to generate varying LCP lengths with specified mean
@@ -44,10 +105,10 @@ std::vector<std::string> get_random_words(size_t length, size_t num_words, doubl
 	// static std::mt19937 gen(0);
 	// Use random seed for non-deterministic generation
 	static std::mt19937 gen(rd());
-	
+
 	// Create distribution for common prefix lengths
 	std::poisson_distribution<size_t> dis(mean_lcp_length);
-	
+
 	// Initialize vector with completely random words of specified length
 	std::vector<std::string> words(num_words, get_random_word(length));
 
@@ -71,7 +132,7 @@ std::vector<std::string> get_random_words(size_t length, size_t num_words, doubl
 
 		// Generate a random LCP length from the Poisson distribution
 		size_t difference = dis(gen);
-		
+
 		// Skip modification if the difference would affect the unique signature
 		if (difference >= length - signature_length)
 		{

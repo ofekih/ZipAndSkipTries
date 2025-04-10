@@ -1,3 +1,23 @@
+/**
+ * @file synthetic_benchmark.cu
+ * @brief Benchmarking program for trie data structures using synthetic data.
+ *
+ * @details This program benchmarks various trie implementations (SkipTrie, ZipTrie,
+ * ParallelSkipTrie, ParallelZipTrie, and C-Trie++) on synthetic data with controlled
+ * properties. It measures and compares construction, search, and removal performance
+ * across different implementations, with configurable parameters for word length,
+ * number of words, and average LCP length. Results are saved to CSV files for further
+ * analysis and visualization.
+ *
+ * @see genetic_benchmark.cu
+ * @see src/synthetic.hpp
+ * @see src/BitString.cuh
+ * @see src/SkipTrie.hpp
+ * @see src/ZipTrie.hpp
+ * @see src/ParallelSkipTrie.cuh
+ * @see src/ParallelZipTrie.cuh
+ */
+
 #include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
 #include "src/ParallelSkipTrie.cuh"
@@ -20,17 +40,49 @@
 
 using namespace ctriepp;
 
+/**
+ * @brief Creates a BitString from a standard string.
+ *
+ * @details Utility function that converts a standard string to a BitString<char>.
+ * This is used for creating BitString objects from the synthetic data strings.
+ *
+ * @param str The standard string to convert.
+ * @return BitString<char> The resulting BitString object.
+ */
 BitString<char> from_string(const std::string& str)
 {
 	return BitString<char>(str);
 }
 
+/**
+ * @struct DataPair
+ * @brief A structure holding both BitString and LongString representations of synthetic data.
+ *
+ * @details This structure is used to store the same string in two different formats:
+ * as a BitString (for our trie implementations) and as a LongString (for C-Trie++),
+ * allowing for fair comparison between different data structures.
+ */
 struct DataPair
 {
-	BitString<char> bit_string;
-	LongString long_string;
+	BitString<char> bit_string; ///< String represented as BitString (for SkipTrie/ZipTrie variants)
+	LongString long_string; ///< String represented as LongString (for C-Trie++)
 };
 
+/**
+ * @brief Generates synthetic data with controlled properties.
+ *
+ * @details Creates a vector of DataPair objects containing randomly generated strings
+ * with specified properties. The strings are generated using the get_random_words function
+ * from synthetic.hpp, which creates strings with a controlled average LCP length.
+ * Each string is stored both as a BitString and as a LongString.
+ *
+ * @param num_words The number of words to generate.
+ * @param word_length The length of each word.
+ * @param mean_lcp_length The average Longest Common Prefix length between words.
+ * @return std::vector<DataPair> A vector of DataPair objects containing the generated data.
+ *
+ * @see get_random_words
+ */
 inline std::vector<DataPair> generate_data(size_t num_words, size_t word_length, double mean_lcp_length)
 {
 	static std::vector<std::string> words;
@@ -47,6 +99,22 @@ inline std::vector<DataPair> generate_data(size_t num_words, size_t word_length,
 	return data;
 }
 
+/**
+ * @brief Runs construction benchmarks on various trie implementations using synthetic data.
+ *
+ * @details Measures the time taken to construct different trie data structures (SkipTrie,
+ * ParallelSkipTrie, memory-intensive ZipTrie, memory-efficient ZipTrie, memory-intensive
+ * ParallelZipTrie, memory-efficient ParallelZipTrie, and C-Trie++) with the same synthetic
+ * data. For each implementation, the benchmark is repeated multiple times and the results
+ * are saved to CSV files.
+ *
+ * @param num_words The number of words to use in the benchmark.
+ * @param word_length The length of each word.
+ * @param mean_lcp The average Longest Common Prefix length between words.
+ * @param num_repetitions The number of repetitions for each benchmark (default: 1000).
+ *
+ * @see save_construction_data
+ */
 void run_construction_benchmark(size_t num_words, size_t word_length, double mean_lcp, unsigned num_repetitions = 1000)
 {
 	CPUTimer timer;
@@ -152,6 +220,21 @@ void run_construction_benchmark(size_t num_words, size_t word_length, double mea
 	save_construction_data("ctrie++", num_words, word_length, mean_lcp, timer.elapsed_nanoseconds(), num_repetitions, 0, false);
 }
 
+/**
+ * @brief Runs both positive and negative search benchmarks.
+ *
+ * @details This is a wrapper function that calls both run_contains_true_benchmark and
+ * run_contains_false_benchmark to measure search performance for both existing and
+ * non-existing elements in the tries.
+ *
+ * @param num_words The number of words to use in the benchmark.
+ * @param word_length The length of each word.
+ * @param mean_lcp The average Longest Common Prefix length between words.
+ * @param num_repetitions The number of repetitions for each benchmark (default: 1000).
+ *
+ * @see run_contains_true_benchmark
+ * @see run_contains_false_benchmark
+ */
 void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp, unsigned num_repetitions = 1000)
 {
 	auto data = generate_data(num_words + num_repetitions, word_length, mean_lcp);
@@ -249,6 +332,17 @@ void run_search_benchmark(size_t num_words, size_t word_length, size_t mean_lcp,
 	}
 }
 
+/**
+ * @brief Runs benchmarks with varying LCP lengths.
+ *
+ * @details Runs construction and search benchmarks for different average LCP lengths,
+ * starting from 4 and doubling until reaching the word length. This helps analyze how
+ * the performance of different trie implementations varies with the LCP length.
+ *
+ * @param num_words The number of words to use in the benchmark.
+ * @param word_length The length of each word.
+ * @param num_repetitions The number of repetitions for each benchmark (default: 1000).
+ */
 void run_variable_lcp_benchmarks(size_t num_words, size_t word_length, unsigned num_repetitions = 1000)
 {
 	WallTimer timer;
@@ -264,6 +358,18 @@ void run_variable_lcp_benchmarks(size_t num_words, size_t word_length, unsigned 
 	}
 }
 
+/**
+ * @brief Runs benchmarks with varying word lengths.
+ *
+ * @details Runs construction and search benchmarks for different word lengths,
+ * starting from 16 and doubling until reaching the maximum word length. This helps
+ * analyze how the performance of different trie implementations varies with the word length.
+ *
+ * @param num_words The number of words to use in the benchmark.
+ * @param max_word_length The maximum word length to test.
+ * @param mean_lcp The average Longest Common Prefix length between words.
+ * @param num_repetitions The number of repetitions for each benchmark (default: 1000).
+ */
 void run_variable_word_length_benchmarks(size_t num_words, size_t max_word_length, double mean_lcp, unsigned num_repetitions = 1000)
 {
 	WallTimer timer;
@@ -279,6 +385,19 @@ void run_variable_word_length_benchmarks(size_t num_words, size_t max_word_lengt
 	}
 }
 
+/**
+ * @brief Runs benchmarks with varying numbers of words.
+ *
+ * @details Runs construction and search benchmarks for different numbers of words,
+ * starting from 4 and doubling until reaching the maximum number of words. This helps
+ * analyze how the performance of different trie implementations scales with the number
+ * of elements in the trie.
+ *
+ * @param max_num_words The maximum number of words to test.
+ * @param word_length The length of each word.
+ * @param mean_lcp The average Longest Common Prefix length between words.
+ * @param num_repetitions The number of repetitions for each benchmark (default: 1000).
+ */
 void run_variable_num_words_benchmarks(size_t max_num_words, size_t word_length, double mean_lcp, unsigned num_repetitions = 1000)
 {
 	WallTimer timer;
@@ -294,6 +413,18 @@ void run_variable_num_words_benchmarks(size_t max_num_words, size_t word_length,
 	}
 }
 
+/**
+ * @brief Main function that runs the synthetic benchmarks.
+ *
+ * @details Runs construction and search benchmarks on various trie implementations
+ * using synthetic data with controlled properties. The benchmark parameters (number of words,
+ * word length, mean LCP length, and number of repetitions) can be specified as command-line
+ * arguments.
+ *
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line argument strings.
+ * @return int Returns 0 on successful execution, 1 on invalid arguments.
+ */
 int main(int argc, char* argv[])
 {
 	if (argc != 5) {

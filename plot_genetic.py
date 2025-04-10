@@ -1,3 +1,18 @@
+#!/usr/bin/env python3
+"""
+Plotting script for genetic benchmark data.
+
+This script generates plots from benchmark data collected using genetic_benchmark.cu.
+It creates various plots comparing the performance of different trie implementations
+on genetic data from the ABC-HuMi dataset, focusing on construction and search times.
+
+The script reads CSV files from the data-genetic directory and generates plots in the
+figures directory. It supports plotting construction time and search time against
+different parameters (number of keys, total key length, LCP length).
+
+The plots include trend lines with log-log regression to analyze asymptotic behavior.
+"""
+
 import matplotlib.pyplot as plt
 plt.rcParams['text.usetex'] = True
 
@@ -14,38 +29,68 @@ import csv
 import socket
 import warnings
 
+# Constants and configuration
 HOSTNAME = socket.gethostname()
 
-DATA_DIRECTORY = Path('data-genetic')
-CONSTRUCTION_FILENAME = 'construction-data'
-REMOVAL_FILENAME = 'removal-data'
-SEARCH_FILENAME = 'search-data'
+# Directory and file paths
+DATA_DIRECTORY = Path('data-genetic')  # Directory containing genetic benchmark data
+CONSTRUCTION_FILENAME = 'construction-data'  # Prefix for construction benchmark files
+REMOVAL_FILENAME = 'removal-data'  # Prefix for removal benchmark files
+SEARCH_FILENAME = 'search-data'  # Prefix for search benchmark files
 
+# Create figures directory if it doesn't exist
 FIGURE_DIRECTORY = Path('figures')
 FIGURE_DIRECTORY.mkdir(exist_ok = True)
 
+# Color-blind friendly palette (Okabe-Ito)
 OKABE_COLORS = ['#000000', '#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7']
 plt.rcParams['axes.prop_cycle'] = plt.cycler(color = OKABE_COLORS) # type: ignore
 
-POINT_SIZE = 0.1
+# Plot configuration
+POINT_SIZE = 0.1  # Default size for data points in plots
 
 def get_dpi(savefig: bool):
+	"""Set the DPI (dots per inch) for figures based on whether they will be saved or displayed.
+
+	Args:
+		savefig: If True, use higher DPI (600) for saved figures, otherwise use lower DPI (300) for display
+	"""
 	plt.rcParams['figure.dpi'] = 600 if savefig else 300
 
 @unique
 class DataType(Enum):
-	CONSTRUCTION = auto()
-	REMOVAL = auto()
-	SEARCH = auto()
+	"""Enumeration of benchmark data types.
+
+	Used to specify which type of benchmark data to load and plot.
+	"""
+	CONSTRUCTION = auto()  # Construction time benchmarks
+	REMOVAL = auto()       # Removal time benchmarks
+	SEARCH = auto()        # Search time benchmarks
 
 class FitLine(NamedTuple):
-	m: float
-	b: float
-	x: tuple[int, ...]
-	y: tuple[float, ...]
-	r2: float
+	"""Represents a fitted trend line for log-log plots.
+
+	Stores the parameters of a linear regression on log-transformed data,
+	as well as the points to plot and the R² value indicating goodness of fit.
+	"""
+	m: float              # Slope of the fitted line in log-log space
+	b: float              # Y-intercept of the fitted line in log-log space
+	x: tuple[int, ...]    # X coordinates for plotting the trend line
+	y: tuple[float, ...]  # Y coordinates for plotting the trend line
+	r2: float             # R² value indicating goodness of fit
 
 def binary_search(x: list[int], key: int) -> int:
+	"""Perform binary search to find the insertion point for key in a sorted list.
+
+	Used to find the index where data points should be skipped when fitting trend lines.
+
+	Args:
+		x: Sorted list of integers to search in
+		key: Value to find the insertion point for
+
+	Returns:
+		Index where key should be inserted to maintain sorted order
+	"""
 	low = 0
 	high = len(x)
 
@@ -60,6 +105,21 @@ def binary_search(x: list[int], key: int) -> int:
 	return low
 
 def fit_log_line(x: list[int], y: list[float], skip_until: int = 0, all_points: bool = False, add_next: list[int] = []) -> FitLine | None:
+	"""Fit a line to log-transformed data points for trend line analysis.
+
+	Performs linear regression on log2-transformed data to analyze asymptotic behavior.
+	Can skip initial data points to focus on asymptotic behavior at scale.
+
+	Args:
+		x: List of x-coordinates (typically problem sizes)
+		y: List of y-coordinates (typically running times)
+		skip_until: Skip data points with x values less than this threshold
+		all_points: If True, include all points in the result; if False, only include endpoints
+		add_next: Additional x values to extrapolate to
+
+	Returns:
+		A FitLine object containing the fitted line parameters, or None if fitting failed
+	"""
 	if skip_until > 0:
 		skip = binary_search(x, skip_until)
 	else:
@@ -90,6 +150,15 @@ def fit_log_line(x: list[int], y: list[float], skip_until: int = 0, all_points: 
 		r2 = r2)
 
 def get_file(method_name: str, data_type: DataType) -> Path:
+	"""Get the file path for benchmark data based on method name and data type.
+
+	Args:
+		method_name: Name of the method/implementation being benchmarked
+		data_type: Type of benchmark data (construction, removal, or search)
+
+	Returns:
+		Path object pointing to the CSV file containing the benchmark data
+	"""
 	match data_type:
 		case DataType.CONSTRUCTION:
 			return DATA_DIRECTORY / f'{HOSTNAME}-{CONSTRUCTION_FILENAME}-{method_name}.csv'
@@ -99,6 +168,17 @@ def get_file(method_name: str, data_type: DataType) -> Path:
 			return DATA_DIRECTORY / f'{HOSTNAME}-{SEARCH_FILENAME}-{method_name}.csv'
 
 def plot(figure_name: str, save: bool, ylabel: str, xlabel: str, legend_loc: str | None = 'best'):
+	"""Finalize and display or save a plot.
+
+	Adds labels, legend, and either displays the plot or saves it to a file.
+
+	Args:
+		figure_name: Base name for the saved figure file (without extension)
+		save: If True, save the figure to a file; if False, display it
+		ylabel: Label for the y-axis
+		xlabel: Label for the x-axis
+		legend_loc: Position for the legend (e.g., 'best', 'upper left', etc.)
+	"""
 	plt.xlabel(xlabel) # type: ignore
 	plt.ylabel(ylabel) # type: ignore
 
@@ -113,6 +193,19 @@ def plot(figure_name: str, save: bool, ylabel: str, xlabel: str, legend_loc: str
 
 @cache
 def load_data(method_name: str, data_type: DataType, cutoff: int = 0) -> tuple[list[int], list[int], list[int], list[float]]:
+	"""Load benchmark data from a CSV file.
+
+	Reads benchmark data for a specific method and data type, filtering by cutoff value.
+
+	Args:
+		method_name: Name of the method/implementation being benchmarked
+		data_type: Type of benchmark data (construction, removal, or search)
+		cutoff: Filter value for the parallel cutoff parameter
+
+	Returns:
+		Tuple containing lists of (n values, m values, l values, elapsed times)
+		where n is number of keys, m is key length, l is LCP length, and elapsed times are in nanoseconds
+	"""
 	ns: list[int] = []
 	ms: list[int] = []
 	ls: list[int] = []
@@ -134,12 +227,38 @@ def load_data(method_name: str, data_type: DataType, cutoff: int = 0) -> tuple[l
 
 @cache
 def get_data_point(method_name: str, data_type: DataType, index: int, cutoff: int = 0) -> tuple[tuple[int], tuple[float]]:
+	"""Extract a specific data series from the benchmark data.
+
+	Loads data and extracts a specific parameter (based on index) and the corresponding times.
+
+	Args:
+		method_name: Name of the method/implementation being benchmarked
+		data_type: Type of benchmark data (construction, removal, or search)
+		index: Which parameter to extract (0 for n, 1 for m, 2 for l)
+		cutoff: Filter value for the parallel cutoff parameter
+
+	Returns:
+		Tuple of (x values, y values) sorted by x, where x is the selected parameter and y is elapsed time
+	"""
 	data = load_data(method_name, data_type, cutoff)
 
 	x, y = zip(*sorted(zip(data[index], data[3])))
 	return x, y
 
 def moving_average(x: list[int], y: list[float], window: float = 1.9) -> tuple[list[int], list[float]]:
+	"""Apply a moving average smoothing to data points.
+
+	First consolidates duplicate x values, then applies a geometric window smoothing
+	to reduce noise in the data while preserving trends.
+
+	Args:
+		x: List of x-coordinates
+		y: List of y-coordinates
+		window: Window size factor (points within x/window to x*window are averaged)
+
+	Returns:
+		Tuple of (smoothed x values, smoothed y values)
+	"""
 	new_x: list[int] = []
 	new_y: list[float] = []
 
@@ -181,6 +300,23 @@ def moving_average(x: list[int], y: list[float], window: float = 1.9) -> tuple[l
 	return x, moving_averages.tolist()
 
 def add_data_point_to_plot(method_name: str, data_type: DataType, index: int, cutoff: int = 0, skip_until: int=0, fitlabel: str='', max_value: int=-1, markersize: float = POINT_SIZE, draw_best_fit: bool = True, label: str = ''):
+	"""Add a data series to the current plot with optional trend line.
+
+	Loads data for a specific method and parameter, applies smoothing, and adds it to the plot.
+	Optionally fits and adds a trend line with equation and R² value in the legend.
+
+	Args:
+		method_name: Name of the method/implementation being benchmarked
+		data_type: Type of benchmark data (construction, removal, or search)
+		index: Which parameter to plot against (0 for n, 1 for m, 2 for l)
+		cutoff: Filter value for the parallel cutoff parameter
+		skip_until: Skip data points with x values less than this threshold for trend line fitting
+		fitlabel: Label to use in the trend line equation (e.g., 'n', 'm', 'L')
+		max_value: Maximum x value to include (-1 for no limit)
+		markersize: Size of the markers for data points
+		draw_best_fit: If True, fit and draw a trend line; if False, only plot data points
+		label: Custom label for the data series (defaults to method_name if empty)
+	"""
 	x, y = get_data_point(method_name, data_type, index, cutoff)
 
 	if max_value > 0:
@@ -206,6 +342,16 @@ def add_data_point_to_plot(method_name: str, data_type: DataType, index: int, cu
 
 
 def compare_construction_data(savefig: bool):
+	"""Create plots comparing construction time for different implementations.
+
+	Generates three plots:
+	1. Construction time vs. number of keys (n)
+	2. Construction time vs. total key length (N)
+	3. Construction time vs. total LCP length (L)
+
+	Args:
+		savefig: If True, save the figures to files; if False, display them
+	"""
 	plt.figure(num = 0, figsize = (8, 5), dpi = get_dpi(savefig), facecolor = 'w', edgecolor = 'k') # type: ignore
 
 	skip_until = 2 ** 8
@@ -268,6 +414,15 @@ def compare_construction_data(savefig: bool):
 # 	plot(figure_name='removal-time-N-comparison', save=savefig, ylabel='Time (ns)', xlabel='Total Key Length ($N$)')
 
 def compare_search_data(savefig: bool):
+	"""Create plots comparing search time for different implementations.
+
+	Generates two plots:
+	1. Search time vs. number of keys (n)
+	2. Search time vs. LCP length (ℓ)
+
+	Args:
+		savefig: If True, save the figures to files; if False, display them
+	"""
 	plt.figure(num=300, figsize=(8, 5), dpi = get_dpi(savefig), facecolor='w', edgecolor='k') # type: ignore
 
 	cutoff = 1

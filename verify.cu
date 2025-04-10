@@ -1,3 +1,20 @@
+/**
+ * @file verify.cu
+ * @brief Verification program for trie data structures and related algorithms.
+ *
+ * This program tests the correctness of various trie implementations and algorithms
+ * by generating random test data and verifying that operations produce expected results.
+ * It tests the following components:
+ * - BitString parallel comparison functions
+ * - SkipTrie insertion and lookup
+ * - ParallelSkipTrie insertion and lookup
+ * - ZipTrie (standard and memory-efficient) insertion and lookup
+ * - ParallelZipTrie (standard and memory-efficient) insertion and lookup
+ *
+ * The program generates synthetic test data with controlled properties (word length,
+ * number of words, and average LCP length) and verifies that all operations work correctly.
+ */
+
 #include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
 #include "src/ParallelSkipTrie.cuh"
@@ -12,6 +29,10 @@
 #include <string>
 #include <algorithm>
 
+/**
+ * @brief Main function that runs verification tests for all trie implementations.
+ * @return int Returns 0 on successful verification, non-zero on failure.
+ */
 int main()
 {
 	size_t word_length = 10000;
@@ -26,6 +47,11 @@ int main()
 
 	CPUTimer timer;
 
+	/**
+	 * @brief Verify the parallel mismatch finding algorithm (par_find_mismatch).
+	 * @details Tests that the parallel implementation of finding the longest common prefix
+	 * between two BitStrings produces the same results as the sequential implementation.
+	 */
 	// verify par_find_mismatch
 	{
 		timer.start("\nVerifying par_find_mismatch");
@@ -53,6 +79,11 @@ int main()
 		timer.print();
 	}
 
+	/**
+	 * @brief Verify the SkipTrie implementation.
+	 * @details Tests insertion and lookup operations on the sequential SkipTrie
+	 * implementation to ensure correctness.
+	 */
 	// Verify SkipTrie
 	{
 		printf("\nVerifying SkipTrie\n");
@@ -81,6 +112,11 @@ int main()
 		timer.print();
 	}
 
+	/**
+	 * @brief Verify the ParallelSkipTrie implementation.
+	 * @details Tests insertion and lookup operations on the GPU-accelerated
+	 * ParallelSkipTrie implementation to ensure correctness.
+	 */
 	// Verify ParallelSkipTrie
 	{
 		printf("\nVerifying ParallelSkipTrie\n");
@@ -109,6 +145,11 @@ int main()
 		timer.print();
 	}
 
+	/**
+	 * @brief Verify the ZipTrie implementation.
+	 * @details Tests insertion and lookup operations on the sequential ZipTrie
+	 * implementation (standard version) to ensure correctness.
+	 */
 	// Verify ZipTrie
 	{
 		printf("\nVerifying ZipTrie\n");
@@ -137,6 +178,11 @@ int main()
 		timer.print();
 	}
 
+	/**
+	 * @brief Verify the ParallelZipTrie implementation.
+	 * @details Tests insertion and lookup operations on the GPU-accelerated
+	 * ParallelZipTrie implementation (standard version) to ensure correctness.
+	 */
 	// Verify ParallelZipTrie
 	{
 		printf("\nVerifying ParallelZipTrie\n");
@@ -165,6 +211,11 @@ int main()
 		timer.print();
 	}
 
+	/**
+	 * @brief Verify the Memory-Efficient ZipTrie implementation.
+	 * @details Tests insertion and lookup operations on the sequential ZipTrie
+	 * implementation with memory efficiency optimizations enabled.
+	 */
 	// Verify Memory-Efficient ZipTrie
 	{
 		printf("\nVerifying Memory-Efficient ZipTrie\n");
@@ -193,6 +244,11 @@ int main()
 		timer.print();
 	}
 
+	/**
+	 * @brief Verify the Memory-Efficient ParallelZipTrie implementation.
+	 * @details Tests insertion and lookup operations on the GPU-accelerated
+	 * ParallelZipTrie implementation with memory efficiency optimizations enabled.
+	 */
 	// Verify Memory-Efficient ParallelZipTrie
 	{
 		printf("\nVerifying Memory-Efficient ParallelZipTrie\n");

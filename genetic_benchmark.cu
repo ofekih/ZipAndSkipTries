@@ -1,3 +1,22 @@
+/**
+ * @file genetic_benchmark.cu
+ * @brief Benchmarking program for trie data structures using genetic data.
+ *
+ * @details This program benchmarks various trie implementations (SkipTrie, ZipTrie,
+ * ParallelSkipTrie, ParallelZipTrie, and C-Trie++) on genetic data from the ABC-HuMi dataset.
+ * It measures and compares construction and search performance across different
+ * implementations, with a focus on genetic sequence data represented as nucleotides.
+ * Results are saved to CSV files for further analysis and visualization.
+ *
+ * @see synthetic_benchmark.cu
+ * @see src/genetics.cuh
+ * @see src/BitString.cuh
+ * @see src/SkipTrie.hpp
+ * @see src/ZipTrie.hpp
+ * @see src/ParallelSkipTrie.cuh
+ * @see src/ParallelZipTrie.cuh
+ */
+
 #include "src/BitString.cuh"
 #include "src/SkipTrie.hpp"
 #include "src/ParallelSkipTrie.cuh"
@@ -21,12 +40,32 @@
 using namespace genetics;
 using namespace ctriepp;
 
+/**
+ * @struct DataPair
+ * @brief A structure holding both BitString and LongString representations of genetic data.
+ *
+ * @details This structure is used to store the same genetic sequence in two different formats:
+ * as a BitString (for our trie implementations) and as a LongString (for C-Trie++),
+ * allowing for fair comparison between different data structures.
+ */
 struct DataPair
 {
-	Gene gene_bs; // gene represented as BitStrings
-	LongString gene_ls; // gene represented as a LongString
+	Gene gene_bs; ///< Gene represented as BitStrings (for SkipTrie/ZipTrie variants)
+	LongString gene_ls; ///< Gene represented as a LongString (for C-Trie++)
 };
 
+/**
+ * @brief Loads genetic data from the ABC-HuMi dataset.
+ *
+ * @details Reads all genes from the ABC-HuMi dataset, converts them to both BitString and
+ * LongString formats, and returns them as a vector of DataPair objects. The function
+ * measures and reports the time taken to load and process the data.
+ *
+ * @return std::vector<DataPair> A vector containing all genes from the ABC-HuMi dataset
+ * in both BitString and LongString formats.
+ *
+ * @see genetics::GeneManager
+ */
 std::vector<DataPair> load_abchumi_data()
 {
 	GeneManager gm(ABC_HUMI_DIRECTORY + "ABC-HuMi");
@@ -58,6 +97,15 @@ std::vector<DataPair> load_abchumi_data()
 	return data;
 }
 
+/**
+ * @brief Shuffles the first n elements of the data vector.
+ *
+ * @details Uses the Fisher-Yates algorithm to randomize the order of the first n elements
+ * in the data vector. This is used to create different insertion orders for benchmarking.
+ *
+ * @param[in,out] data The vector of DataPair objects to shuffle.
+ * @param n The number of elements to shuffle.
+ */
 void shuffle_data(std::vector<DataPair>& data, size_t n)
 {
 	static std::mt19937 gen(std::random_device{}());
@@ -71,6 +119,15 @@ void shuffle_data(std::vector<DataPair>& data, size_t n)
 	}
 }
 
+/**
+ * @brief Generates a vector of indices from 0 to n-1.
+ *
+ * @details Creates a vector containing integers from 0 to n-1 in ascending order.
+ * This is used for creating random access patterns for search benchmarks.
+ *
+ * @param n The number of indices to generate.
+ * @return std::vector<size_t> A vector containing integers from 0 to n-1.
+ */
 std::vector<size_t> generate_indices(size_t n)
 {
 	std::vector<size_t> indices(n);
@@ -78,6 +135,21 @@ std::vector<size_t> generate_indices(size_t n)
 	return indices;
 }
 
+/**
+ * @brief Runs construction benchmarks on various trie implementations using genetic data.
+ *
+ * @details Measures the time taken to construct different trie data structures (C-Trie++,
+ * ZipTrie, memory-intensive ZipTrie, ParallelZipTrie, memory-intensive ParallelZipTrie,
+ * SkipTrie, and ParallelSkipTrie) with the same genetic data. For each implementation,
+ * the benchmark is repeated multiple times and the results are saved to CSV files.
+ *
+ * @param[in,out] data The vector of DataPair objects containing the genetic data.
+ * @param n The number of genes to use in the benchmark.
+ * @param num_trials The number of trials to run (each with a different shuffle).
+ * @param num_repetitions The number of repetitions for each trial (default: 100).
+ *
+ * @see save_construction_data
+ */
 void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t num_trials, size_t num_repetitions = 100)
 {
 	static std::random_device rd;
@@ -186,6 +258,21 @@ void run_construction_benchmark(std::vector<DataPair>& data, size_t n, size_t nu
 	}
 }
 
+/**
+ * @brief Runs search benchmarks on various trie implementations using genetic data.
+ *
+ * @details Measures the time taken to search for genes in different trie data structures
+ * (C-Trie++, ZipTrie, memory-intensive ZipTrie, ParallelZipTrie, memory-intensive ParallelZipTrie)
+ * with the same genetic data. For each implementation, the benchmark is repeated multiple times
+ * with different search patterns, and the results are saved to CSV files.
+ *
+ * @param[in,out] data The vector of DataPair objects containing the genetic data.
+ * @param n The number of genes to use in the benchmark.
+ * @param num_trials The number of trials to run (each with a different search pattern).
+ * @param num_repetitions The number of repetitions for each trial (default: 1000).
+ *
+ * @see save_search_data
+ */
 void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t num_trials, size_t num_repetitions = 1000)
 {
 	shuffle_data(data, n);
@@ -266,6 +353,17 @@ void run_contains_true_benchmark(std::vector<DataPair>& data, size_t n, size_t n
 	}
 }
 
+/**
+ * @brief Main function that runs the genetic benchmarks.
+ *
+ * @details Loads genetic data from the ABC-HuMi dataset and runs construction and search
+ * benchmarks on various trie implementations. The benchmark parameters (number of trials
+ * and number of simulations) can be specified as command-line arguments.
+ *
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line argument strings.
+ * @return int Returns 0 on successful execution, 1 on invalid arguments.
+ */
 int main(int argc, char* argv[])
 {
 	setlocale(LC_ALL, "en_US.UTF-8");

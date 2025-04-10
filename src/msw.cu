@@ -1,3 +1,25 @@
+/**
+ * @file msw.cu
+ * @brief Implementation of CUDA-accelerated Most Significant Word finding algorithms.
+ *
+ * @details This file implements a parallel algorithm for finding the first mismatching word
+ * between two arrays using a two-phase square root decomposition approach:
+ *
+ * Phase 1: Divide the arrays into sqrt(n) chunks and identify which chunk contains the first mismatch.
+ * Phase 2: Within the identified chunk, find the exact position of the first mismatch.
+ *
+ * The implementation uses three key CUDA kernels:
+ * - par_sig_sqrt: Computes XOR between corresponding elements and marks chunks with mismatches
+ * - naive_leftmost_prisoner: Uses a tournament-style approach to find the leftmost non-zero element
+ * - par_get_section_diff: Identifies and records the index of the first non-zero element
+ *
+ * This algorithm achieves O(n) work with O(1) span when sufficient threads are available,
+ * making it highly efficient for large arrays on GPU hardware.
+ *
+ * @see msw.cuh
+ * @see cuda_utils.cuh
+ */
+
 #include <bit> // bit_width
 #include <cstddef> // size_t
 #include <cstdint> // uintmax_t
@@ -47,18 +69,18 @@ __global__ void naive_leftmost_prisoner(uintmax_t *p, size_t n)
 {
 	// Calculate total number of pairwise comparisons needed
 	size_t n_choose_2 = n * (n - 1) / 2;
-	
+
 	// Distribute comparisons evenly across threads
 	size_t num_computations = (n_choose_2 - 1) / get_num_threads() + 1;
 
 	// Calculate starting comparison index for this thread
 	auto i = get_tid() * num_computations;
-	
+
 	// Convert linear index i to pair (a,b) using inverse of triangular number formula
 	// This maps from a 1D index to a 2D comparison between elements at positions a and b
 	size_t b = (1 + std::sqrt(1 + 8 * i)) / 2;  // Row index calculation
 	size_t a = i - b * (b - 1) / 2;             // Column index calculation
-	
+
 	// Process this thread's allocated comparisons
 	while (num_computations-- && b < n)
 	{
@@ -83,12 +105,12 @@ __global__ void naive_leftmost_prisoner(uintmax_t *p, size_t n)
  * this kernel scans the array to find the remaining non-zero element and records its index.
  * Multiple threads may write to the same location, but they'll all write the same value
  * since only one element should remain non-zero after the elimination process.
- * 
+ *
  * This kernel is used in both phases of the square root algorithm:
  * 1. To find which sqrt(n)-sized chunk contains the first mismatch
  * 2. To find the exact position within that chunk
  */
-__global__ void par_get_section_diff(uintmax_t *tree, uintmax_t *section, size_t n) 
+__global__ void par_get_section_diff(uintmax_t *tree, uintmax_t *section, size_t n)
 {
 	// Each thread checks a subset of elements
 	for (auto i = get_tid(); i < n; i += get_num_threads())
@@ -101,7 +123,22 @@ __global__ void par_get_section_diff(uintmax_t *tree, uintmax_t *section, size_t
 	}
 }
 
-size_t seq_find_mismatch(const uintmax_t * const arr1, const uintmax_t * const arr2, size_t size) 
+/**
+ * @brief Sequential implementation of finding the first mismatching word between two arrays.
+ *
+ * @details This is a simple linear scan through both arrays, comparing corresponding elements
+ * until a mismatch is found. This function serves as a baseline for comparison with the
+ * parallel implementation and is used for validation.
+ *
+ * Time complexity: O(n) in the worst case
+ * Space complexity: O(1)
+ *
+ * @param arr1 First input array
+ * @param arr2 Second input array
+ * @param size Number of elements in the arrays
+ * @return Index of the first mismatching word, or size if arrays are identical
+ */
+size_t seq_find_mismatch(const uintmax_t * const arr1, const uintmax_t * const arr2, size_t size)
 {
 	for (size_t i = 0; i < size; ++i)
 	{
@@ -114,9 +151,30 @@ size_t seq_find_mismatch(const uintmax_t * const arr1, const uintmax_t * const a
 	return size;
 }
 
-// assume d_a is already populated on the device
-// assume large block has size big enough to hold b and signature array
-// that size should be ~n + sqrt(n) + 2
+/**
+ * @brief GPU-accelerated implementation of finding the first mismatching word with pre-allocated memory.
+ *
+ * @details This function implements a two-phase square root decomposition algorithm:
+ * 1. Divide the arrays into sqrt(n) chunks and identify which chunk contains the first mismatch
+ * 2. Within the identified chunk, find the exact position of the first mismatch
+ *
+ * The algorithm uses three CUDA kernels:
+ * - par_sig_sqrt: Marks chunks containing mismatches
+ * - naive_leftmost_prisoner: Eliminates all but the leftmost non-zero element
+ * - par_get_section_diff: Identifies the index of the first non-zero element
+ *
+ * Time complexity: O(n) work with O(1) span when sufficient threads are available
+ * Space complexity: O(n + sqrt(n)) for temporary storage
+ *
+ * @pre d_a is already populated on the device
+ * @pre d_large_block has size at least n + sqrt(n) + 2 to hold b and signature arrays
+ *
+ * @param d_a First input array (already in device memory)
+ * @param b Second input array (host memory, will be copied to device)
+ * @param d_large_block Pre-allocated device memory block for temporary storage
+ * @param n Number of elements in the arrays
+ * @return Index of the first mismatching word, or n if arrays are identical
+ */
 size_t par_find_mismatch(const uintmax_t * const d_a, const uintmax_t * const b, uintmax_t *d_large_block, size_t n)
 {
 	// Copy the second array to device memory using pre-allocated buffer
@@ -148,7 +206,7 @@ size_t par_find_mismatch(const uintmax_t * const d_a, const uintmax_t * const b,
 	// Copy the result back to host memory
 	uintmax_t *h_section = copy_from_device(d_section, 1);
 	size_t section = *h_section;
-	
+
 	// If no mismatch found, return n (indicating arrays are identical)
 	if (section == std::numeric_limits<uintmax_t>::max())
 	{
@@ -182,6 +240,19 @@ size_t par_find_mismatch(const uintmax_t * const d_a, const uintmax_t * const b,
 	return section_offset + result;
 }
 
+/**
+ * @brief Allocates a large block of device memory for parallel mismatch operations.
+ *
+ * @details Calculates the required memory size based on the input size n and allocates
+ * a contiguous block of memory on the device. The size is calculated to accommodate:
+ * - A copy of the second array (n elements)
+ * - Storage for the result (1 element)
+ * - The signature array for chunk identification (sqrt(n) elements)
+ * - An extra element for safety (1 element)
+ *
+ * @param n Number of elements to be processed
+ * @return Pointer to allocated device memory of size n + sqrt(n-1) + 2
+ */
 uintmax_t* alloc_large_block_to_device(size_t n)
 {
 	size_t large_block_size = n + std::sqrt(n - 1) + 2;
@@ -189,7 +260,24 @@ uintmax_t* alloc_large_block_to_device(size_t n)
 	return alloc_to_device<uintmax_t>(large_block_size);
 }
 
-size_t par_find_mismatch(const uintmax_t * const a, const uintmax_t * const b, size_t n) 
+/**
+ * @brief Convenience wrapper for GPU-accelerated mismatch finding.
+ *
+ * @details This function handles all the device memory management, including:
+ * - Allocating device memory for both arrays
+ * - Copying the first array to the device
+ * - Calling the core implementation
+ * - Freeing all allocated device memory
+ *
+ * This provides a simpler interface for callers who don't need to manage device memory
+ * themselves or reuse memory across multiple calls.
+ *
+ * @param a First input array (host memory)
+ * @param b Second input array (host memory)
+ * @param n Number of elements in the arrays
+ * @return Index of the first mismatching word, or n if arrays are identical
+ */
+size_t par_find_mismatch(const uintmax_t * const a, const uintmax_t * const b, size_t n)
 {
 	uintmax_t *d_a = copy_to_device(a, n);
 	uintmax_t *d_large_block = alloc_large_block_to_device(n);

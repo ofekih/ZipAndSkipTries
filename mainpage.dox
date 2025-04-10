@@ -1,0 +1,83 @@
+/**
+ * @mainpage Zip and Skip Tries
+ * 
+ * @section intro_sec Introduction
+ * 
+ * This project implements and evaluates several trie data structures with a focus on performance and memory efficiency:
+ * 
+ * - **SkipTrie**: A sequential trie implementation that uses skipping techniques to improve traversal speed
+ * - **ZipTrie**: A memory-efficient trie that compresses paths with single children
+ * - **ParallelSkipTrie**: A GPU-accelerated version of SkipTrie using CUDA
+ * - **ParallelZipTrie**: A GPU-accelerated version of ZipTrie using CUDA
+ * 
+ * Each implementation is designed to efficiently store and search for strings, with particular optimizations for genetic sequence data and other applications with long common prefixes.
+ * 
+ * @section features_sec Key Features
+ * 
+ * - **Memory Efficiency**: ZipTrie variants compress paths to reduce memory usage
+ * - **GPU Acceleration**: Parallel implementations leverage CUDA for high-performance operations
+ * - **Genetic Data Support**: Specialized support for nucleotide sequences from the ABC-HuMi dataset
+ * - **Synthetic Data Generation**: Tools for creating controlled test data with specific properties
+ * - **Comprehensive Benchmarking**: Detailed performance analysis across different parameters
+ * 
+ * @section architecture_sec Architecture
+ * 
+ * The codebase is organized into several key components:
+ * 
+ * - **Core Data Structures**: Implementation of the trie variants (SkipTrie, ZipTrie, ParallelSkipTrie, ParallelZipTrie)
+ * - **BitString**: Fundamental representation of strings optimized for trie operations
+ * - **CUDA Utilities**: Helper functions for GPU memory management and kernel execution
+ * - **Genetic Data Processing**: Tools for loading and processing genetic sequences
+ * - **Synthetic Data Generation**: Utilities for creating test data with controlled properties
+ * - **Benchmarking**: Comprehensive performance measurement and analysis tools
+ * 
+ * @section usage_sec Usage
+ * 
+ * The project includes several executable components:
+ * 
+ * - **verify**: Validates the correctness of all trie implementations
+ * - **genetic_benchmark**: Benchmarks performance on genetic data from the ABC-HuMi dataset
+ * - **synthetic_benchmark**: Benchmarks performance on synthetic data with controlled properties
+ * - **plot_genetic.py** and **plot_synthetic.py**: Generate visualizations of benchmark results
+ * 
+ * @section build_sec Building
+ * 
+ * The project uses a Makefile build system and requires:
+ * 
+ * - CUDA Toolkit (for parallel implementations)
+ * - C++17 compatible compiler
+ * - Python with matplotlib (for plotting)
+ * 
+ * Basic build commands:
+ * ```bash
+ * make verify            # Build the verification program
+ * make genetic_benchmark # Build the genetic data benchmark
+ * make synthetic_benchmark # Build the synthetic data benchmark
+ * ```
+ * 
+ * @section benchmarking_sec Benchmarking
+ * 
+ * The project includes comprehensive benchmarking capabilities:
+ * 
+ * 1. Run the benchmark executables to collect performance data:
+ *    ```bash
+ *    ./genetic_benchmark <num_trials> <num_simulations>
+ *    ./synthetic_benchmark <num_words> <word_length> <mean_lcp> <num_repetitions>
+ *    ```
+ * 
+ * 2. Generate visualization plots:
+ *    ```bash
+ *    python plot_genetic.py
+ *    python plot_synthetic.py
+ *    ```
+ * 
+ * @section performance_sec Performance
+ * 
+ * The parallel implementations show significant speedups over sequential versions, particularly for:
+ * 
+ * - Large datasets (millions of strings)
+ * - Long strings (thousands of characters)
+ * - Strings with long common prefixes
+ * 
+ * The memory-efficient variants reduce memory usage at a small cost to performance, making them suitable for memory-constrained environments.
+ */
