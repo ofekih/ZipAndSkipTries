@@ -26,13 +26,13 @@ int main()
 
 	CPUTimer timer;
 
-	// verify par_find_mismatch_s
+	// verify par_find_mismatch
 	{
-		timer.start("\nVerifying par_find_mismatch_s");
+		timer.start("\nVerifying par_find_mismatch");
 
 		size_t max_size_words = (word_length + BitString<char>::ALPHA - 1) / BitString<char>::ALPHA;
 		uintmax_t *d_a = copy_to_device(bs[0].data(), bs[0].size());
-		uintmax_t *d_largeblock = alloc_large_block_to_device_s(max_size_words);
+		uintmax_t *d_largeblock = alloc_large_block_to_device(max_size_words);
 		size_t max_copied = 0;
 
 		for (size_t i = 20; i < bs.size(); i++)

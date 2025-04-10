@@ -158,7 +158,7 @@ ParallelSkipTrie<CHAR_T, CHAR_SIZE_BITS>::ParallelSkipTrie(size_t max_size)
 	d_a = alloc_to_device<uintmax_t>(max_size_words);
 	
 	// Allocate larger block for more complex parallel operations
-	d_largeblock = alloc_large_block_to_device_s(max_size_words);
+	d_largeblock = alloc_large_block_to_device(max_size_words);
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>

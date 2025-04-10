@@ -155,7 +155,7 @@ protected:
 private:
 	/** @brief Pointer to device memory buffer 'a', used as primary input/output for parallel key comparisons (e.g., via `BitString::par_k_compare`). */
 	uintmax_t* d_a;
-	/** @brief Pointer to auxiliary device memory buffer ('largeblock'), used as temporary storage or workspace during parallel key comparisons by kernels like `par_find_mismatch_s`. */
+	/** @brief Pointer to auxiliary device memory buffer ('largeblock'), used as temporary storage or workspace during parallel key comparisons by kernels like `par_find_mismatch`. */
 	uintmax_t* d_largeblock;
 
 	/**
@@ -201,8 +201,8 @@ ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ParallelZipTr
 	// Allocate the primary device buffer.
 	d_a = alloc_to_device<uintmax_t>(max_lcp_length_words);
 	// Allocate the auxiliary large block buffer (size calculation might depend on the parallel algorithm used).
-	// Assuming alloc_large_block_to_device_s is defined appropriately, potentially in cuda_utils.cuh.
-	d_largeblock = alloc_large_block_to_device_s(max_lcp_length_words);
+	// Use large block device allocation for temporary storage in parallel operations
+	d_largeblock = alloc_large_block_to_device(max_lcp_length_words);
 }
 
 template<typename CHAR_T, bool MEMORY_EFFICIENT, typename RANK_T, unsigned CHAR_SIZE_BITS>

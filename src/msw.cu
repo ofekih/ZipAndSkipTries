@@ -7,99 +7,91 @@
 
 #include "cuda_utils.cuh"
 
-// TODO: Naming conventions in general suck, should fix
+/**
+ * @brief CUDA kernel that implements the first phase of the square root decomposition.
+ * @details This kernel performs two critical operations:
+ *   1. Computes the XOR (as inequality check) between corresponding elements of two arrays
+ *   2. Maps each mismatch to its respective sqrt(n)-sized chunk in the signature array
+ *
+ * Each thread processes multiple elements based on its thread ID. When a mismatch
+ * is found, the corresponding chunk in sig_out is marked with a 1.
+ */
+__global__ void par_sig_sqrt(const uintmax_t * const p1, uintmax_t *p2, uintmax_t *sig_out, size_t n) {
+	// Calculate number of chunks, each of size sqrt(n)
+	size_t num_sqrt = std::sqrt(n - 1) + 1;
 
-/*
-__host__ inline size_t host_fast_log2(size_t n) 
-{
-	return std::bit_width(n) - 1;
-}
+	// Each thread processes elements at positions (threadIdx + k*blockDim*gridDim)
+	for (auto i = get_tid(); i < n; i += get_num_threads()) {
+		// Store XOR result in p2 - non-zero values indicate mismatches
+		p2[i] = p1[i] != p2[i];
 
-__host__ inline size_t host_fast_log2_ceil(size_t n) 
-{
-	return std::bit_width(n - 1);
-}
-
-__device__ __forceinline__ size_t device_fast_log2(size_t n) 
-{
-	return std::numeric_limits<size_t>::digits - 1 - __clzll(n);
-}
-
-__device__ __forceinline__ size_t device_fast_log2_ceil(size_t n) 
-{
-	return std::numeric_limits<size_t>::digits - __clzll(n - 1);
-}
-*/
-
-__device__ __forceinline__ size_t device_get_ancestor(size_t i, size_t height) 
-{
-	return ((i + 1) >> height) - 1;
-}
-
-__global__ void par_xor_sig(const uintmax_t * const p1, uintmax_t *p2, uintmax_t *sig_out, size_t n) 
-{
-	for (auto i = get_tid(); i < n; i += get_num_threads()) 
-	{
-		p2[i] = p1[i] ^ p2[i];
-
+		// If there's a mismatch, mark its chunk in the signature array
 		if (p2[i] != 0)
-			sig_out[i / device_fast_log2(n)] = 1;
+			sig_out[i / num_sqrt] = 1;
 	}
 }
 
-__global__ void par_poptree(uintmax_t *tree, size_t n) 
+/**
+ * @brief Parallel kernel to find the leftmost non-zero element in an array.
+ * @details Uses a tournament-style approach where each pair of elements is compared,
+ * and if a left element (lower index) is non-zero, it "eliminates" the right element
+ * by setting it to zero. After all comparisons, only the leftmost non-zero element remains.
+ * This kernel achieves O(n²) work in O(1) span when sufficient threads are available.
+ *
+ * The algorithm distributes all n-choose-2 pairwise comparisons across available threads.
+ */
+__global__ void naive_leftmost_prisoner(uintmax_t *p, size_t n)
 {
-	auto num_ancestors = device_fast_log2_ceil(n);
-	auto leaf_start = (1uLL << num_ancestors) - 1; // there are 2^num_ancestors - 1 internal nodes
+	// Calculate total number of pairwise comparisons needed
+	size_t n_choose_2 = n * (n - 1) / 2;
+	
+	// Distribute comparisons evenly across threads
+	size_t num_computations = (n_choose_2 - 1) / get_num_threads() + 1;
 
-	for (auto i = get_tid(); i < n * num_ancestors; i += get_num_threads()) 
+	// Calculate starting comparison index for this thread
+	auto i = get_tid() * num_computations;
+	
+	// Convert linear index i to pair (a,b) using inverse of triangular number formula
+	// This maps from a 1D index to a 2D comparison between elements at positions a and b
+	size_t b = (1 + std::sqrt(1 + 8 * i)) / 2;  // Row index calculation
+	size_t a = i - b * (b - 1) / 2;             // Column index calculation
+	
+	// Process this thread's allocated comparisons
+	while (num_computations-- && b < n)
 	{
-		auto leaf_index = i / num_ancestors;
-		auto leaf_node = leaf_start + leaf_index;
+		// If the left element is non-zero, eliminate the right element
+		if (p[a]) p[b] = 0;
 
-		if (tree[leaf_node] == 0)
-			continue;
+		// Move to next comparison pair
+		++a;
 
-		auto height_from_bottom = (i % num_ancestors) + 1;
-
-		tree[device_get_ancestor(leaf_node, height_from_bottom)] = 1;
+		// If we reach the end of a row, move to the next row
+		if (a == b)
+		{
+			a = 0;  // Start at the leftmost element
+			++b;    // Move to the next row
+		}
 	}
 }
 
-__global__ void par_mark_msw(uintmax_t *tree, uintmax_t n) 
-{
-	auto num_ancestors = device_fast_log2_ceil(n);
-	auto leaf_start = (1uLL << num_ancestors) - 1; // there are 2^num_ancestors - 1 internal nodes
-
-	for (auto i = get_tid(); i < n * num_ancestors; i += get_num_threads()) 
-	{
-		auto leaf_index = i / num_ancestors;
-		auto leaf_node = leaf_start + leaf_index;
-
-		if (tree[leaf_node] == 0)
-			continue;
-
-		auto height_from_bottom = (i % num_ancestors) + 1;
-		auto ancestor = device_get_ancestor(leaf_node, height_from_bottom);
-		auto ancestor_left_child = (ancestor << 1) + 1;
-
-		if (tree[ancestor_left_child] == 0)
-			continue;
-
-		auto one_lower_ancestor = device_get_ancestor(leaf_node, height_from_bottom - 1);
-
-		if (one_lower_ancestor == ancestor_left_child)
-			continue;
-
-		tree[leaf_node] = 0;
-	}
-}
-
+/**
+ * @brief Parallel kernel to identify and record the index of the first non-zero element.
+ * @details After the naive_leftmost_prisoner kernel has eliminated all non-leftmost elements,
+ * this kernel scans the array to find the remaining non-zero element and records its index.
+ * Multiple threads may write to the same location, but they'll all write the same value
+ * since only one element should remain non-zero after the elimination process.
+ * 
+ * This kernel is used in both phases of the square root algorithm:
+ * 1. To find which sqrt(n)-sized chunk contains the first mismatch
+ * 2. To find the exact position within that chunk
+ */
 __global__ void par_get_section_diff(uintmax_t *tree, uintmax_t *section, size_t n) 
 {
+	// Each thread checks a subset of elements
 	for (auto i = get_tid(); i < n; i += get_num_threads())
+		// If we find a non-zero element, it must be the leftmost one after elimination
 		if (tree[i] != 0)
-			*section = i;
+			*section = i;  // Record its index as the result
 }
 
 size_t seq_find_mismatch(const uintmax_t * const arr1, const uintmax_t * const arr2, size_t size) 
@@ -111,117 +103,76 @@ size_t seq_find_mismatch(const uintmax_t * const arr1, const uintmax_t * const a
 	return size;
 }
 
-size_t seq_find_msw(const uintmax_t * const words, size_t n)
+// assume d_a is already populated on the device
+// assume large block has size big enough to hold b and signature array
+// that size should be ~n + sqrt(n) + 2
+size_t par_find_mismatch(const uintmax_t * const d_a, const uintmax_t * const b, uintmax_t *d_large_block, size_t n)
 {
-	for (size_t i = 0; i < n; ++i)
-		if (words[i] != 0)
-			return i;
+	// Copy the second array to device memory using pre-allocated buffer
+	uintmax_t *d_b = copy_to_device(d_large_block, b, n);
 
-	return n;
-}
+	// Set up memory pointers within the large block:
+	// - d_section: single value to store result
+	// - d_sqrt: array of size sqrt(n) to track which chunks have mismatches
+	uintmax_t *d_section = d_b + n;
+	uintmax_t *d_sqrt = d_section + 1;
+	size_t num_sqrt = std::sqrt(n - 1) + 1;  // Calculate number of sqrt-sized chunks
 
-size_t par_find_msw(uintmax_t *d_tree, uintmax_t *d_section, size_t num_leaves)
-{
-	size_t padded_num_leaves = 1 << host_fast_log2_ceil(num_leaves);
-	uintmax_t *leaves = d_tree + padded_num_leaves - 1;
-
+	// Initialize the section result to max value (no match found yet)
 	memset_within_device(d_section, 1, 0xFF);
 
-	par_poptree<<<BLOCKS, THREADS>>>(d_tree, num_leaves);
+	// Initialize the sqrt array to zeros (no mismatches found yet)
+	memset_within_device(d_sqrt, num_sqrt, 0);
 
-	par_mark_msw<<<BLOCKS, THREADS>>>(d_tree, num_leaves);
+	// PHASE 1: Find which sqrt(n)-sized chunk has the first mismatch
+	// For each element, compute XOR of the two arrays and mark its chunk in d_sqrt if mismatch
+	par_sig_sqrt<<<BLOCKS, THREADS>>>(d_a, d_b, d_sqrt, n);
 
-	par_get_section_diff<<<BLOCKS, THREADS>>>(leaves, d_section, num_leaves);
+	// Find the first non-zero chunk (chunk with a mismatch) in parallel
+	naive_leftmost_prisoner<<<BLOCKS, THREADS>>>(d_sqrt, num_sqrt);
 
+	// Extract the index of the first chunk with a mismatch
+	par_get_section_diff<<<BLOCKS, THREADS>>>(d_sqrt, d_section, num_sqrt);
+
+	// Copy the result back to host memory
 	uintmax_t *h_section = copy_from_device(d_section, 1);
 	size_t section = *h_section;
+	
+	// If no mismatch found, return n (indicating arrays are identical)
+	if (section == std::numeric_limits<uintmax_t>::max()) {
+		delete[] h_section;
+		return n;
+	}
+
+	// Reset the section result for the second phase
+	memset_within_device(d_section, 1, 0xFF);
+
+	// PHASE 2: Find the exact mismatch position within the identified chunk
+	// Calculate the offset and size of the identified chunk
+	size_t section_offset = section * num_sqrt;
+	size_t section_end = std::min(n, section_offset + num_sqrt);
+	uintmax_t *d_sig_section = d_b + section_offset;
+	size_t num_words = section_end - section_offset;
+
+	// Find the first non-zero word within the chunk (containing XOR results)
+	naive_leftmost_prisoner<<<BLOCKS, THREADS>>>(d_sig_section, num_words);
+
+	// Extract the index of the first mismatching word within the chunk
+	par_get_section_diff<<<BLOCKS, THREADS>>>(d_sig_section, d_section, num_words);
+
+	// Copy the result back to host memory
+	h_section = copy_from_device(d_section, 1);
+	size_t result = *h_section;
 
 	delete[] h_section;
 
-	if (section == std::numeric_limits<uintmax_t>::max())
-		return num_leaves;
-
-	return section;
-}
-
-// assume d_a and d_b are already populated
-// assume d_tree and d_section are already allocated
-size_t par_find_mismatch(const uintmax_t * const d_a, uintmax_t *d_b, uintmax_t *d_tree, uintmax_t *d_section, size_t n)
-{
-	std::cout << "par_find_mismatch" << std::endl;
-	std::cout << n << std::endl;
-	size_t num_leaves_per_section = host_fast_log2(n);
-	size_t num_leaves = (n + num_leaves_per_section - 1) / num_leaves_per_section;
-	size_t padded_num_leaves = 1 << host_fast_log2_ceil(num_leaves);
-	uintmax_t *leaves = d_tree + padded_num_leaves - 1;
-
-	memset_within_device(d_tree, num_leaves + padded_num_leaves - 1, 0);
-
-	std::cout << "par_find_mismatch 1" << std::endl;
-
-	// stores XOR in d_b
-	par_xor_sig<<<BLOCKS, THREADS>>>(d_a, d_b, leaves, n);
-
-	uintmax_t *h_leaves = copy_from_device(leaves, padded_num_leaves);
-	std::cout << "leaves: ";
-	for (size_t i = 0; i < padded_num_leaves; ++i)
-		std::cout << h_leaves[i] << " ";
-
-	std::cout << std::endl;
-
-	std::cout << "par_find_mismatch 2" << std::endl;
-
-	size_t h_section = par_find_msw(d_tree, d_section, num_leaves);
-	if (h_section == num_leaves)
-		return n;
-
-	std::cout << "par_find_mismatch 3" << std::endl;
-
-	size_t xor_offset = h_section * num_leaves_per_section;
-	size_t xor_end = std::min(n, xor_offset + num_leaves_per_section);
-	uintmax_t *xor_section = d_b + xor_offset;
-	size_t num_words = xor_end - xor_offset;
-
-	// print all the above variables, very pretty, fancy message
-
-	std::cout << "h_section: " << h_section << std::endl;
-	std::cout << "num_leaves_per_section: " << num_leaves_per_section << std::endl;
-	std::cout << "xor_offset: " << xor_offset << std::endl;
-	std::cout << "xor_end: " << xor_end << std::endl;
-	std::cout << "num_words: " << num_words << std::endl;
-
-
-	uintmax_t *h_xor_section = copy_from_device(xor_section, num_words);
-
-	std::cout << "par_find_mismatch 4" << std::endl;
-
-	size_t result = seq_find_msw(h_xor_section, num_words);
-	delete[] h_xor_section;
-
-	std::cout << "par_find_mismatch end" << std::endl;
-
-	return xor_offset + result;
-}
-
-// assume d_a is already populated
-// assume large block has size big enough to hold b, tree, and section (1)
-// that size should be ~n + 2 * (n / log2(n)) + 1
-size_t par_find_mismatch(const uintmax_t * const d_a, const uintmax_t * const b, uintmax_t *d_large_block, size_t n)
-{
-	uintmax_t *d_b = copy_to_device(d_large_block, b, n);
-	uintmax_t *d_section = d_b + n;
-	uintmax_t *d_tree = d_section + 1;
-
-	return par_find_mismatch(d_a, d_b, d_tree, d_section, n);
+	// Return the global index of the first mismatch (chunk offset + position within chunk)
+	return section_offset + result;
 }
 
 uintmax_t* alloc_large_block_to_device(size_t n)
 {
-	size_t num_leaves_per_section = host_fast_log2(n);
-	size_t num_leaves = (n + num_leaves_per_section - 1) / num_leaves_per_section;
-	size_t padded_num_leaves = 1 << host_fast_log2_ceil(num_leaves);
-
-	size_t large_block_size = n + num_leaves + padded_num_leaves;
+	size_t large_block_size = n + std::sqrt(n - 1) + 2;
 
 	return alloc_to_device<uintmax_t>(large_block_size);
 }
@@ -237,124 +188,4 @@ size_t par_find_mismatch(const uintmax_t * const a, const uintmax_t * const b, s
 	device_free(d_large_block);
 
 	return result;
-}
-
-__global__ void par_sig_sqrt(const uintmax_t * const p1, uintmax_t *p2, uintmax_t *sig_out, size_t n) {
-	size_t num_sqrt = std::sqrt(n - 1) + 1;
-
-	for (auto i = get_tid(); i < n; i += get_num_threads()) {
-		p2[i] = p1[i] != p2[i];
-
-		if (p2[i] != 0)
-			sig_out[i / num_sqrt] = 1;
-	}
-}
-
-size_t par_find_mismatch_sa(const uintmax_t * const d_a, const uintmax_t * const b, uintmax_t *d_large_block, size_t n)
-{
-	uintmax_t *d_b = copy_to_device(d_large_block, b, n);
-
-	uintmax_t *d_section = d_b + n;
-	uintmax_t *d_sqrt = d_section + 1;
-
-	par_sig_sqrt<<<BLOCKS, THREADS>>>(d_a, d_b, d_sqrt, n);
-
-	size_t num_sqrt = std::sqrt(n - 1) + 1;
-
-	uintmax_t* h_sqrt = copy_from_device(d_sqrt, num_sqrt);
-
-	size_t section = seq_find_msw(h_sqrt, num_sqrt);
-
-	delete[] h_sqrt;
-
-	if (section == num_sqrt)
-		return n;
-
-	size_t section_offset = section * num_sqrt;
-	size_t section_end = std::min(n, section_offset + num_sqrt);
-	uintmax_t *d_sig_section = d_b + section_offset;
-	size_t num_words = section_end - section_offset;
-
-	uintmax_t* h_sig_section = copy_from_device(d_sig_section, num_words);
-
-	size_t result = seq_find_msw(h_sig_section, num_words);
-
-	delete[] h_sig_section;
-
-	return section_offset + result;
-}
-
-__global__ void naive_leftmost_prisoner(uintmax_t *p, size_t n)
-{
-	size_t n_choose_2 = n * (n - 1) / 2;
-	size_t num_computations = (n_choose_2 - 1) / get_num_threads() + 1;
-
-	auto i = get_tid() * num_computations;
-	size_t b = (1 + std::sqrt(1 + 8 * i)) / 2;
-	size_t a = i - b * (b - 1) / 2;
-
-	while (num_computations-- && b < n)
-	{
-		if (p[a]) p[b] = 0;
-
-		++a;
-
-		if (a == b)
-		{
-			a = 0;
-			++b;
-		}
-	}
-}
-
-size_t par_find_mismatch_s(const uintmax_t * const d_a, const uintmax_t * const b, uintmax_t *d_large_block, size_t n)
-{
-	uintmax_t *d_b = copy_to_device(d_large_block, b, n);
-
-	uintmax_t *d_section = d_b + n;
-	uintmax_t *d_sqrt = d_section + 1;
-	size_t num_sqrt = std::sqrt(n - 1) + 1;
-
-	memset_within_device(d_section, 1, 0xFF);
-
-	memset_within_device(d_sqrt, num_sqrt, 0);
-
-	par_sig_sqrt<<<BLOCKS, THREADS>>>(d_a, d_b, d_sqrt, n);
-
-	naive_leftmost_prisoner<<<BLOCKS, THREADS>>>(d_sqrt, num_sqrt);
-
-	par_get_section_diff<<<BLOCKS, THREADS>>>(d_sqrt, d_section, num_sqrt);
-
-	uintmax_t *h_section = copy_from_device(d_section, 1);
-	size_t section = *h_section;
-	
-	if (section == std::numeric_limits<uintmax_t>::max()) {
-		delete[] h_section;
-		return n;
-	}
-
-	memset_within_device(d_section, 1, 0xFF);
-
-	size_t section_offset = section * num_sqrt;
-	size_t section_end = std::min(n, section_offset + num_sqrt);
-	uintmax_t *d_sig_section = d_b + section_offset;
-	size_t num_words = section_end - section_offset;
-
-	naive_leftmost_prisoner<<<BLOCKS, THREADS>>>(d_sig_section, num_words);
-
-	par_get_section_diff<<<BLOCKS, THREADS>>>(d_sig_section, d_section, num_words);
-
-	h_section = copy_from_device(d_section, 1);
-	size_t result = *h_section;
-
-	delete[] h_section;
-
-	return section_offset + result;
-}
-
-uintmax_t* alloc_large_block_to_device_s(size_t n)
-{
-	size_t large_block_size = n + std::sqrt(n - 1) + 2;
-
-	return alloc_to_device<uintmax_t>(large_block_size);
 }

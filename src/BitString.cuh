@@ -195,7 +195,7 @@ public:
 	 *
 	 * Compares this BitString with `other`, assuming the first `lcp` characters are equal.
 	 * If the number of words to compare exceeds `MIN_PAR_COMPARE_WORD_SIZE`, this function attempts
-	 * to use a parallel CUDA kernel (`par_find_mismatch_s`) for faster mismatch detection.
+	 * to use a parallel CUDA kernel (`par_find_mismatch`) for faster mismatch detection.
 	 * Otherwise, it falls back to `seq_k_compare`. The comparison stops strictly at `lcp + max_compare`
 	 * characters or the end of the shorter string, whichever comes first.
 	 *
@@ -213,7 +213,7 @@ public:
 	 * @see seq_k_compare
 	 * @see MIN_PAR_COMPARE_WORD_SIZE
 	 * @note Requires properly allocated CUDA device memory (`d_a`, `d_largeblock`) and a valid CUDA context.
-	 * @note The `other` BitString's data is assumed to be accessible directly (e.g., host pinned memory or already on device if applicable to `par_find_mismatch_s`).
+	 * @note The `other` BitString's data is assumed to be accessible directly (e.g., host pinned memory or already on device if applicable to `par_find_mismatch`).
 	 * @note Uses `std::bit_ceil` and `std::countl_zero`.
 	 */
 	ResultLCP par_k_compare(const BitString& other, size_t lcp, size_t max_compare, uintmax_t* d_a, uintmax_t* d_largeblock, size_t& max_copied) const noexcept;
@@ -630,7 +630,7 @@ auto BitString<CHAR_T, CHAR_SIZE_BITS>::par_k_compare(const BitString& other, si
 	lcp -= lcp % ALPHA; // Reset LCP to the start of the current word boundary for parallel comparison
 
 	// Perform parallel mismatch search
-	auto msw = par_find_mismatch_s(d_a + word_index, other.data() + word_index, d_largeblock, actual_max_compare_words);
+	auto msw = par_find_mismatch(d_a + word_index, other.data() + word_index, d_largeblock, actual_max_compare_words);
 
 	// Calculate LCP based on mismatch word index (msw)
 	lcp += msw * ALPHA;
