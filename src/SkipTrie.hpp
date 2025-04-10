@@ -44,6 +44,8 @@ template<typename CHAR_T, unsigned CHAR_SIZE_BITS = sizeof(CHAR_T) * 8>
 class SkipTrie
 {
 public:
+	using KEY_T = BitString<CHAR_T, CHAR_SIZE_BITS>;
+
 	/**
 	 * @brief Constructs a new String Skip List object.
 	 */
@@ -59,18 +61,18 @@ public:
 	 * @brief Inserts a new key into the skip list.
 	 * @param key A pointer to the BitString representing the key to insert.
 	 */
-	bool insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept;
+	bool insert(const KEY_T* key) noexcept;
 
 	/**
 	 * @brief Inserts a new key into the skip list with a specified height.
 	 * @param key A pointer to the BitString representing the key to insert.
 	 * @param height The height at which to insert the key.
 	 */
-	bool insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, size_t height) noexcept;
+	bool insert(const KEY_T* key, size_t height) noexcept;
 
-	bool contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept;
+	bool contains(const KEY_T* key) const noexcept;
 
-	bool remove(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept;
+	bool remove(const KEY_T* key) noexcept;
 
 	/**
 	 * @brief Prints the contents of the skip list to the specified output stream.
@@ -84,17 +86,18 @@ public:
 	size_t size() const noexcept { return m_size; }
 	size_t height() const noexcept { return m_height; }
 
-	size_t lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept;
-	size_t lcp_with_others(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept;
+	size_t lcp(const KEY_T* key) const noexcept;
+	size_t lcp_with_others(const KEY_T* key) const noexcept;
 
 	// return all keys with the same prefix
-	std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> suffix_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept;
+	std::vector<const KEY_T*> suffix_search(const KEY_T* key) const noexcept;
 
 	// return all keys within a certain range
-	std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> range_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key1, const BitString<CHAR_T, CHAR_SIZE_BITS>* key2) const noexcept;
+	std::vector<const KEY_T*> range_search(const KEY_T* key1, const KEY_T* key2) const noexcept;
 
 	std::unordered_map<size_t, size_t> get_lcp_group_sizes() const noexcept;
-private:
+
+protected:
 	size_t m_size; ///< Stores the number of elements in the skip list.
 	size_t m_height; ///< Stores the current height of the skip list.
 
@@ -104,7 +107,7 @@ private:
 	 */
 	struct Node
 	{
-		const BitString<CHAR_T, CHAR_SIZE_BITS>* key; ///< The key stored in this node.
+		const KEY_T* key; ///< The key stored in this node.
 		std::shared_ptr<Node> next{nullptr}; ///< Pointer to the next node in the list.
 		Node* prev = nullptr; ///< Pointer to the previous node in the list.
 		std::shared_ptr<Node> down{nullptr}; ///< Pointer to the node below in the list.
@@ -148,7 +151,7 @@ private:
 	 * @param current_height The current height in the recursive stack.
 	 * @return std::shared_ptr<Node> A shared pointer to the newly inserted node, or nullptr if insertion was not needed.
 	 */
-	std::shared_ptr<Node> insert_recursive(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node* curr, size_t height, Direction direction, size_t lcp, size_t current_height) noexcept;
+	std::shared_ptr<Node> insert_recursive(const KEY_T* key, Node* curr, size_t height, Direction direction, size_t lcp, size_t current_height) noexcept;
 	
 	/**
 	 * @brief Iterates through a layer of the skip list to find the appropriate insertion point for a key.
@@ -162,7 +165,7 @@ private:
 	 * @param direction The initial direction for the iteration.
 	 * @return Direction The direction in which the next iteration should proceed.
 	 */
-	Direction iter_layer(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node*& curr, Direction direction, size_t& lcp) const noexcept;
+	Direction iter_layer(const KEY_T* key, Node*& curr, Direction direction, size_t& lcp) const noexcept;
 
 	struct NodeLCP
 	{
@@ -170,7 +173,7 @@ private:
 		size_t lcp;
 	};
 
-	NodeLCP find_first(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0 = false) const noexcept;
+	virtual NodeLCP find_first(const KEY_T* key, const bool require_level0 = false) const noexcept;
 	
 	struct EqualOrSuccessor
 	{
@@ -180,7 +183,15 @@ private:
 	};
 
 	// NOTE: RESETS LCP
-	EqualOrSuccessor find_equal_or_successor(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept;
+	virtual EqualOrSuccessor find_equal_or_successor(const KEY_T* key, const bool require_level0) const noexcept;
+
+	struct ResultLCP
+	{
+		std::strong_ordering result;
+		size_t lcp;
+	};
+
+	virtual ResultLCP compare(const KEY_T* key1, const KEY_T* key2, size_t lcp) const noexcept;
 
 public:
 	/**
@@ -215,15 +226,15 @@ public:
 
 		/**
 		 * @brief Dereference operator. Provides access to the key of the node currently pointed to by the iterator.
-		 * @return const BitString<CHAR_T, CHAR_SIZE_BITS>& A reference to the key of the current node.
+		 * @return const KEY_T& A reference to the key of the current node.
 		 */
-		const BitString<CHAR_T, CHAR_SIZE_BITS>& operator*() const noexcept;
+		const KEY_T& operator*() const noexcept;
 
 		/**
 		 * @brief Arrow operator. Provides pointer-like access to the key of the node currently pointed to by the iterator.
-		 * @return const BitString<CHAR_T, CHAR_SIZE_BITS>* A pointer to the key of the current node.
+		 * @return const KEY_T* A pointer to the key of the current node.
 		 */
-		const BitString<CHAR_T, CHAR_SIZE_BITS>* operator->() const noexcept;
+		const KEY_T* operator->() const noexcept;
 
 		/**
 		 * @brief Equality comparison operator. Checks if two iterators are the same by comparing their current nodes.
@@ -403,7 +414,15 @@ void SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove_layer() noexcept
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node*& curr, Direction direction, size_t& lcp) const noexcept
+auto SkipTrie<CHAR_T, CHAR_SIZE_BITS>::compare(const KEY_T* key1, const KEY_T* key2, size_t lcp) const noexcept -> ResultLCP
+{
+	auto [comparison, next_lcp] = key1->seq_k_compare(*key2, lcp);
+
+	return { comparison, next_lcp };
+}
+
+template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
+Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const KEY_T* key, Node*& curr, Direction direction, size_t& lcp) const noexcept
 {
 	if (direction == Direction::INPLACE)
 	{
@@ -423,7 +442,7 @@ Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, C
 		}
 		
 		// if equal, must actually compare
-		auto [comparison, next_lcp] = key->seq_k_compare(*next->key, lcp);
+		auto [comparison, next_lcp] = compare(key, next->key, lcp);
 		lcp = next_lcp;
 
 		curr = next;
@@ -454,7 +473,7 @@ Direction SkipTrie<CHAR_T, CHAR_SIZE_BITS>::iter_layer(const BitString<CHAR_T, C
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::NodeLCP SkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_first(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept
+typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::NodeLCP SkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_first(const KEY_T* key, const bool require_level0) const noexcept
 {
 	auto [node, is_equal, lcp] = find_equal_or_successor(key, require_level0);
 
@@ -462,19 +481,19 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::NodeLCP SkipTrie<CHAR_T, CHAR_SIZE_BI
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::contains(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::contains(const KEY_T* key) const noexcept
 {
 	return find_first(key).node;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const KEY_T* key) noexcept
 {
 	return insert(key, get_random_height());
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, size_t height) noexcept
+bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const KEY_T* key, size_t height) noexcept
 {
 	while (height + 1 >= m_height)
 	{
@@ -493,7 +512,7 @@ bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert(const BitString<CHAR_T, CHAR_SIZE_
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::shared_ptr<typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert_recursive(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, Node* curr, size_t height, Direction direction, size_t lcp, size_t current_height) noexcept
+std::shared_ptr<typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::insert_recursive(const KEY_T* key, Node* curr, size_t height, Direction direction, size_t lcp, size_t current_height) noexcept
 {
 	Direction next_direction = iter_layer(key, curr, direction, lcp);
 
@@ -547,7 +566,7 @@ std::shared_ptr<typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::Node> SkipTrie<CHAR_T
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) noexcept
+bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove(const KEY_T* key) noexcept
 {
 	Node* curr = find_first(key).node;
 
@@ -585,13 +604,13 @@ bool SkipTrie<CHAR_T, CHAR_SIZE_BITS>::remove(const BitString<CHAR_T, CHAR_SIZE_
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp(const KEY_T* key) const noexcept
 {
 	return find_first(key).lcp;
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp_with_others(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp_with_others(const KEY_T* key) const noexcept
 {
 	auto [node, lcp] = find_first(key, true);
 
@@ -604,9 +623,9 @@ size_t SkipTrie<CHAR_T, CHAR_SIZE_BITS>::lcp_with_others(const BitString<CHAR_T,
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::suffix_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key) const noexcept
+std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::suffix_search(const KEY_T* key) const noexcept
 {
-	std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> keys;
+	std::vector<const KEY_T*> keys;
 
 	auto [curr, _, lcp] = find_equal_or_successor(key, true).node;
 
@@ -628,7 +647,7 @@ std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor SkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_equal_or_successor(const BitString<CHAR_T, CHAR_SIZE_BITS>* key, const bool require_level0) const noexcept
+typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor SkipTrie<CHAR_T, CHAR_SIZE_BITS>::find_equal_or_successor(const KEY_T* key, const bool require_level0) const noexcept
 {
 	if (!m_head)
 	{
@@ -663,9 +682,9 @@ typename SkipTrie<CHAR_T, CHAR_SIZE_BITS>::EqualOrSuccessor SkipTrie<CHAR_T, CHA
 }
 
 template<typename CHAR_T, unsigned CHAR_SIZE_BITS>
-std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::range_search(const BitString<CHAR_T, CHAR_SIZE_BITS>* key1, const BitString<CHAR_T, CHAR_SIZE_BITS>* key2) const noexcept
+std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> SkipTrie<CHAR_T, CHAR_SIZE_BITS>::range_search(const KEY_T* key1, const KEY_T* key2) const noexcept
 {
-	std::vector<const BitString<CHAR_T, CHAR_SIZE_BITS>*> keys;
+	std::vector<const KEY_T*> keys;
 
 	Node* curr = find_equal_or_successor(key1, true).node;
 

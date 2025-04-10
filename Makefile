@@ -85,5 +85,5 @@ vpath %.cu $(SRC_DIRS)
 # Clean
 clean:
 	rm -rf $(OBJ_DIR)/*
-	rm -rf $(DOC_DIR)/*
 	rm -rf $(BIN_DIR)/*
+	rm -rf $(DOC_DIR)/*
