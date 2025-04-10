@@ -1,5 +1,5 @@
 /**
- * @file utility.cuh
+ * @file cuda_utils.cuh
  * @brief Provides utility functions and classes for CUDA operations.
  *
  * This file includes common CUDA helper functions, error checking macros,

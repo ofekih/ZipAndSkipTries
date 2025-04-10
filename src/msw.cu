@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 
-#include "utility.cuh"
+#include "cuda_utils.cuh"
 
 // TODO: Naming conventions in general suck, should fix
 

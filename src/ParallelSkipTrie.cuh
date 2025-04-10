@@ -23,7 +23,7 @@
 #include "BitString.cuh" // for string representation
 #include "SkipTrie.hpp" // for Direction
 
-#include "utility.cuh"
+#include "cuda_utils.cuh"
 #include "msw.cuh"
 
 

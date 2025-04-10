@@ -27,7 +27,7 @@
 
 // Include CUDA headers for parallel operations
 #include "msw.cuh"
-#include "utility.cuh"
+#include "cuda_utils.cuh"
 
 /**
  * @brief Minimum number of words required to trigger parallel comparison.

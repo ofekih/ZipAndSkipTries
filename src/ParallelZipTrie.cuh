@@ -17,7 +17,7 @@
 
 #include "ZipTrie.hpp" // Base class definition
 
-#include "utility.cuh" // CUDA utility functions like alloc_to_device, device_free
+#include "cuda_utils.cuh" // CUDA utility functions like alloc_to_device, device_free
 
 /**
  * @class ParallelZipTrie
@@ -201,7 +201,7 @@ ParallelZipTrie<CHAR_T, MEMORY_EFFICIENT, RANK_T, CHAR_SIZE_BITS>::ParallelZipTr
 	// Allocate the primary device buffer.
 	d_a = alloc_to_device<uintmax_t>(max_lcp_length_words);
 	// Allocate the auxiliary large block buffer (size calculation might depend on the parallel algorithm used).
-	// Assuming alloc_large_block_to_device_s is defined appropriately, potentially in utility.cuh.
+	// Assuming alloc_large_block_to_device_s is defined appropriately, potentially in cuda_utils.cuh.
 	d_largeblock = alloc_large_block_to_device_s(max_lcp_length_words);
 }
 
