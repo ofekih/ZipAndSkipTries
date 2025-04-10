@@ -21,13 +21,16 @@ __global__ void par_sig_sqrt(const uintmax_t * const p1, uintmax_t *p2, uintmax_
 	size_t num_sqrt = std::sqrt(n - 1) + 1;
 
 	// Each thread processes elements at positions (threadIdx + k*blockDim*gridDim)
-	for (auto i = get_tid(); i < n; i += get_num_threads()) {
+	for (auto i = get_tid(); i < n; i += get_num_threads())
+	{
 		// Store XOR result in p2 - non-zero values indicate mismatches
 		p2[i] = p1[i] != p2[i];
 
 		// If there's a mismatch, mark its chunk in the signature array
 		if (p2[i] != 0)
+		{
 			sig_out[i / num_sqrt] = 1;
+		}
 	}
 }
 
@@ -89,16 +92,24 @@ __global__ void par_get_section_diff(uintmax_t *tree, uintmax_t *section, size_t
 {
 	// Each thread checks a subset of elements
 	for (auto i = get_tid(); i < n; i += get_num_threads())
+	{
 		// If we find a non-zero element, it must be the leftmost one after elimination
 		if (tree[i] != 0)
+		{
 			*section = i;  // Record its index as the result
+		}
+	}
 }
 
 size_t seq_find_mismatch(const uintmax_t * const arr1, const uintmax_t * const arr2, size_t size) 
 {
 	for (size_t i = 0; i < size; ++i)
+	{
 		if (arr1[i] != arr2[i])
+		{
 			return i;
+		}
+	}
 
 	return size;
 }
@@ -139,7 +150,8 @@ size_t par_find_mismatch(const uintmax_t * const d_a, const uintmax_t * const b,
 	size_t section = *h_section;
 	
 	// If no mismatch found, return n (indicating arrays are identical)
-	if (section == std::numeric_limits<uintmax_t>::max()) {
+	if (section == std::numeric_limits<uintmax_t>::max())
+	{
 		delete[] h_section;
 		return n;
 	}
