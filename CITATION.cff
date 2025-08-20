@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite the accompanying paper."
-title: "ZipAndSkipTries"
+title: "Zip And Skip Tries"
 
 authors:
   - family-names: Eppstein
