@@ -7,10 +7,13 @@ authors:
     given-names: David E.
   - family-names: Gila
     given-names: Ofek
+    orcid: "0009-0005-5931-771X"
   - family-names: Goodrich
     given-names: Michael T.
+    orcid: "0000-0002-8943-191X"
   - family-names: Kitagawa
     given-names: Ryuto
+    orcid: "0009-0000-7329-9590"
 
 preferred-citation:
   type: conference-paper
@@ -19,12 +22,14 @@ preferred-citation:
       given-names: David E.
     - family-names: Gila
       given-names: Ofek
+      orcid: "0009-0005-5931-771X"
     - family-names: Goodrich
       given-names: Michael T.
+      orcid: "0000-0002-8943-191X"
     - family-names: Kitagawa
       given-names: Ryuto
+      orcid: "0009-0000-7329-9590"
   title: "Zip-Tries: Simple Dynamic Data Structures for Strings"
-  doi: "10.1137/1.9781611978759.10"
   identifiers:
     - type: doi
       value: "10.1137/1.9781611978759.10"
@@ -32,6 +37,6 @@ preferred-citation:
       value: "https://arxiv.org/abs/2505.04953"
   event: "Proceedings of the Conference on Applied and Computational Discrete Algorithms (ACDA)"
   year: 2025
-  month: 7
+  month: 5
   start: 130
   end: 143
