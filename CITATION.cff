@@ -1,5 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite the accompanying paper."
+title: "ZipAndSkipTries"
 
 authors:
   - family-names: Eppstein
@@ -24,6 +25,11 @@ preferred-citation:
       given-names: Ryuto
   title: "Zip-Tries: Simple Dynamic Data Structures for Strings"
   doi: "10.1137/1.9781611978759.10"
+  identifiers:
+    - type: doi
+      value: "10.1137/1.9781611978759.10"
+    - type: url
+      value: "https://arxiv.org/abs/2505.04953"
   event: "Proceedings of the Conference on Applied and Computational Discrete Algorithms (ACDA)"
   year: 2025
   month: 7
