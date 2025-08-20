@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the accompanying paper."
+
+authors:
+  - family-names: Eppstein
+    given-names: David E.
+  - family-names: Gila
+    given-names: Ofek
+  - family-names: Goodrich
+    given-names: Michael T.
+  - family-names: Kitagawa
+    given-names: Ryuto
+
+preferred-citation:
+  type: conference-paper
+  authors:
+    - family-names: Eppstein
+      given-names: David E.
+    - family-names: Gila
+      given-names: Ofek
+    - family-names: Goodrich
+      given-names: Michael T.
+    - family-names: Kitagawa
+      given-names: Ryuto
+  title: "Zip-Tries: Simple Dynamic Data Structures for Strings"
+  doi: "10.1137/1.9781611978759.10"
+  event: "Proceedings of the Conference on Applied and Computational Discrete Algorithms (ACDA)"
+  year: 2025
+  month: 7
+  start: 130
+  end: 143
