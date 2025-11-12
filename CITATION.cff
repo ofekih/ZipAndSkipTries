@@ -35,7 +35,7 @@ preferred-citation:
       value: "10.1137/1.9781611978759.10"
     - type: url
       value: "https://arxiv.org/abs/2505.04953"
-  event: "Proceedings of the Conference on Applied and Computational Discrete Algorithms (ACDA)"
+  collection-title: "Proceedings of the Conference on Applied and Computational Discrete Algorithms (ACDA)"
   year: 2025
   month: 5
   start: 130
